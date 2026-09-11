@@ -1,0 +1,19 @@
+# Git ignore for ML Service model weights and local virtualenvs
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+*.pt
+*.pth
+*.joblib
+*.onnx
+*.bin
+*.h5
+*.ckpt
+.pytest_cache/
+.env
+.env.*
+!.env.example
+

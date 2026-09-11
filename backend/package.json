@@ -1,0 +1,51 @@
+{
+  "name": "foodshareai-backend",
+  "version": "1.0.0",
+  "description": "Production-ready backend API for FoodShareAI",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "seed": "node src/scripts/seed.js",
+    "create-admin": "node src/scripts/createAdmin.js",
+    "test:models": "node src/scripts/testModels.js",
+    "test:auth": "node src/scripts/testAuth.js",
+    "test:donor": "node src/scripts/testDonorDonations.js",
+    "test:ngo": "node src/scripts/testNgoMatching.js",
+    "test:volunteer": "node src/scripts/testVolunteerDelivery.js",
+    "test:ai": "node src/scripts/testAiIntegration.js",
+    "test:demand": "node src/scripts/testDemandPrediction.js",
+    "test:route": "node src/scripts/testRouteTracking.js",
+    "test:safety": "node src/scripts/testFraudSafety.js",
+    "test:notifications": "node src/scripts/testNotifications.js",
+    "test:admin": "node src/scripts/testAdminOperationalIntelligence.js",
+    "test:impact": "node src/scripts/testImpactGamification.js",
+    "test:integration": "node src/scripts/testSystemIntegration.js"
+  },
+  "keywords": [
+    "foodshareai",
+    "express",
+    "mongodb",
+    "surplus-food",
+    "api"
+  ],
+  "author": "FoodShareAI Team",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.12.1",
+    "morgan": "^1.10.0",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9",
+    "socket.io-client": "^4.8.3"
+  }
+}

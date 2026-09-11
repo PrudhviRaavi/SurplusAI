@@ -1,0 +1,29 @@
+/**
+ * FoodShareAI - Smart Matching Weights & Configuration
+ * Centralized constants and weights for the NGO food matching engine.
+ */
+
+const MATCHING_WEIGHTS = Object.freeze({
+  DISTANCE_WEIGHT: 0.25,
+  FOOD_WEIGHT: 0.20,
+  QUANTITY_WEIGHT: 0.15,
+  REQUIREMENT_WEIGHT: 0.15,
+  URGENCY_WEIGHT: 0.15,
+  SERVICE_AREA_WEIGHT: 0.10,
+});
+
+const SCORING_PARAMS = Object.freeze({
+  DEFAULT_SEARCH_RADIUS_KM: 15,
+  MAX_CONSIDERED_DISTANCE_KM: 30,
+  CRITICAL_URGENCY_HOURS: 2,
+  HIGH_URGENCY_HOURS: 4,
+  MODERATE_URGENCY_HOURS: 8,
+  STANDARD_URGENCY_HOURS: 24,
+  MIN_MATCH_SCORE: 0,
+  MAX_MATCH_SCORE: 100,
+});
+
+module.exports = {
+  MATCHING_WEIGHTS,
+  SCORING_PARAMS,
+};
