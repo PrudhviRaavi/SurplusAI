@@ -117,9 +117,18 @@ export const useAppStore = create((set) => ({
 
   formData: initialFormData,
   updateFormData: (fields) =>
-    set((state) => ({
-      formData: { ...state.formData, ...fields },
-    })),
+    set((state) => {
+      const sanitized = { ...fields };
+      if (sanitized.donorAddress && typeof sanitized.donorAddress === 'object') {
+        sanitized.donorAddress = sanitized.donorAddress.address || '124 Luxury Boulevard, Jubilee Hills, Hyderabad';
+      }
+      if (sanitized.ngoAddress && typeof sanitized.ngoAddress === 'object') {
+        sanitized.ngoAddress = sanitized.ngoAddress.address || 'Koti Community Center, Hyderabad';
+      }
+      return {
+        formData: { ...state.formData, ...sanitized },
+      };
+    }),
 
   resetFormData: () => set({ formData: initialFormData }),
 

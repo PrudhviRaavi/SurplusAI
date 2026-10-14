@@ -6,6 +6,11 @@ import { API_BASE_URL } from './apiConfig';
 import { tokenStorage } from './tokenStorage';
 
 const request = async (endpoint, options = {}) => {
+  if (API_BASE_URL.includes('__UNCONFIGURED_ANDROID_LAN_HOST__')) {
+    throw new Error(
+      'Missing LAN configuration for physical Android. Please set EXPO_PUBLIC_API_URL (e.g. http://<YOUR_LAN_IP>:5000/api) or EXPO_PUBLIC_DEV_HOST in your .env file.'
+    );
+  }
   const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
   const token = await tokenStorage.getToken();
 

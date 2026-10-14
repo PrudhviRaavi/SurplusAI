@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,48 @@ import {
   StatusBar,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LocationPickerMap } from '../../components/common/LocationPickerMap';
+import { OpenStreetMapViewer } from '../../components/common/OpenStreetMapViewer';
 import { SmartRouteCard } from '../../components/volunteer/SmartRouteCard';
+import { defaultTasks } from '../../components/volunteer/NearbyTasksList';
+import { volunteerRouteService } from '../../services/routes/volunteerRouteService';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
-export const VolunteerRouteTabScreen = () => {
+export const VolunteerRouteTabScreen = ({ routeData: propRouteData = null, tasks = null }) => {
+  const [routeData, setRouteData] = useState(() => propRouteData || volunteerRouteService.buildDemoRoute(tasks || defaultTasks));
+
+  useEffect(() => {
+    if (propRouteData) {
+      setRouteData(propRouteData);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchRoute = async () => {
+      try {
+        const res = await volunteerRouteService.getOptimizedRouteForTasks(tasks || defaultTasks);
+        if (isMounted && res) {
+          setRouteData(res);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setRouteData(volunteerRouteService.buildDemoRoute(tasks || defaultTasks));
+        }
+      }
+    };
+    fetchRoute();
+    return () => {
+      isMounted = false;
+    };
+  }, [propRouteData, tasks]);
+
+  const activeRoute = routeData || volunteerRouteService.buildDemoRoute(defaultTasks);
+  const stops = activeRoute?.stops || [];
+  const stop1Name = stops[1]?.name || 'Green Leaf Restaurant';
+  const stop1Qty = stops[1]?.quantity || '25 packaged meals';
+  const stop2Name = stops[2]?.name || 'Artisan Bakery Hub';
+  const stop2Qty = stops[2]?.quantity || '40 loaves';
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
@@ -23,55 +59,67 @@ export const VolunteerRouteTabScreen = () => {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.titleSection}>
-          <Text style={styles.subTag}>LIVE NAVIGATION</Text>
+          <Text style={styles.subTag}>
+            {activeRoute?.isDemo ? 'SAMPLE ROUTE GUIDANCE' : 'LIVE NAVIGATION'}
+          </Text>
           <Text style={styles.mainTitle}>
             Delivery <Text style={styles.italicSerif}>Route.</Text>
           </Text>
           <Text style={styles.subtitle}>
-            Optimized turn-by-turn guidance connecting donor pickup to NGO community drop-off.
+            {activeRoute?.isDemo
+              ? 'Demo Route — Sample Route visualization connecting the 2 available requests.'
+              : 'Optimized turn-by-turn guidance connecting donor pickups to community drop-offs.'}
           </Text>
         </View>
 
         {/* AI Smart Route Card */}
-        <SmartRouteCard />
+        <SmartRouteCard routeData={activeRoute} />
 
-        {/* OpenStreetMap Map Component */}
+        {/* OpenStreetMap Multi-Stop Route Map */}
         <View style={styles.mapContainer}>
-          <Text style={styles.sectionHeader}>LIVE OPENSTREETMAP DISPATCH ROUTE</Text>
-          <LocationPickerMap initialAddress="Green Leaf Restaurant → Hope Community Kitchen" />
+          <Text style={styles.sectionHeader}>
+            {activeRoute?.isDemo ? 'SAMPLE OPENSTREETMAP DISPATCH ROUTE (DEMO)' : 'LIVE OPENSTREETMAP DISPATCH ROUTE'}
+          </Text>
+          <OpenStreetMapViewer
+            routeCoordinates={activeRoute?.route?.coordinates}
+            stops={activeRoute?.stops}
+            isDemo={activeRoute?.isDemo}
+            demoLabel={activeRoute?.demoLabel}
+            height={240}
+          />
         </View>
 
-        {/* Route Steps */}
+        {/* Route Steps / Turn-by-Turn Guidance */}
         <View style={styles.stepsCard}>
-          <Text style={styles.stepsTitle}>TURN-BY-TURN GUIDANCE</Text>
+          <Text style={styles.stepsTitle}>TURN-BY-TURN DISPATCH STOPS</Text>
 
           <View style={styles.stepRow}>
-            <View style={styles.stepNum}>
+            <View style={[styles.stepNum, { backgroundColor: '#10B981' }]}>
+              <Ionicons name="navigate" size={12} color="#FFFFFF" />
+            </View>
+            <View style={styles.stepInfo}>
+              <Text style={styles.stepText}>Start from {stops[0]?.name || 'Volunteer Current Location'}</Text>
+              <Text style={styles.stepSub}>{stops[0]?.address || 'Jubilee Hills Hub'} · Depart on bike</Text>
+            </View>
+          </View>
+
+          <View style={styles.stepRow}>
+            <View style={[styles.stepNum, { backgroundColor: '#2563EB' }]}>
               <Text style={styles.stepNumText}>1</Text>
             </View>
             <View style={styles.stepInfo}>
-              <Text style={styles.stepText}>Head north on Jubilee Hills Road #36</Text>
-              <Text style={styles.stepSub}>0.8 km · 3 min</Text>
+              <Text style={styles.stepText}>Stop 1: {stop1Name}</Text>
+              <Text style={styles.stepSub}>Collect {stop1Qty}</Text>
             </View>
           </View>
 
           <View style={styles.stepRow}>
-            <View style={styles.stepNum}>
+            <View style={[styles.stepNum, { backgroundColor: '#D97706' }]}>
               <Text style={styles.stepNumText}>2</Text>
             </View>
             <View style={styles.stepInfo}>
-              <Text style={styles.stepText}>Arrive at Green Leaf Restaurant (Pickup)</Text>
-              <Text style={styles.stepSub}>Collect 25 packaged meals</Text>
-            </View>
-          </View>
-
-          <View style={styles.stepRow}>
-            <View style={[styles.stepNum, { backgroundColor: colors.accent }]}>
-              <Text style={styles.stepNumText}>3</Text>
-            </View>
-            <View style={styles.stepInfo}>
-              <Text style={styles.stepText}>Proceed via Outer Ring Road to Koti Shelter</Text>
-              <Text style={styles.stepSub}>1.6 km · 9 min</Text>
+              <Text style={styles.stepText}>Stop 2: {stop2Name}</Text>
+              <Text style={styles.stepSub}>Collect {stop2Qty}</Text>
             </View>
           </View>
         </View>
@@ -150,30 +198,30 @@ const styles = StyleSheet.create({
   stepRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    marginBottom: 14,
     gap: 12,
   },
   stepNum: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.primary,
   },
   stepNumText: {
-    fontSize: 12,
-    fontFamily: 'Poppins',
-    fontWeight: '800',
     color: colors.white,
+    fontFamily: 'Poppins',
+    fontWeight: '700',
+    fontSize: 12,
   },
   stepInfo: {
     flex: 1,
   },
   stepText: {
     fontFamily: 'Poppins',
-    fontSize: 14,
     fontWeight: '700',
+    fontSize: 13,
     color: colors.textPrimary,
   },
   stepSub: {

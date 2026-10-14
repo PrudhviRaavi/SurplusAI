@@ -31,6 +31,7 @@ import { MapScreen } from '../MapScreen';
 import { useAppStore } from '../../store/useAppStore';
 import { colors } from '../../theme/colors';
 import { ngoApiService } from '../../services/api/ngoApiService';
+import { socketClient } from '../../services/api/socketClient';
 
 export const NgoDashboardScreen = ({ onLogout }) => {
   const { formData } = useAppStore();
@@ -48,15 +49,32 @@ export const NgoDashboardScreen = ({ onLogout }) => {
     const fetchDashboard = async () => {
       try {
         const res = await ngoApiService.getDashboard();
-        if (res?.data && isMounted) {
-          setDashboardData(res.data);
+        const payload = (res && res.capacity) ? res : (res?.data || res);
+        if (payload && isMounted) {
+          setDashboardData(payload);
         }
       } catch (err) {
         // Fallback to store on error
       }
     };
+
     fetchDashboard();
-    return () => { isMounted = false; };
+
+    // 10s automatic polling fallback for resilient sync
+    const intervalId = setInterval(fetchDashboard, 10000);
+
+    // Real-time updates via Socket.IO
+    const unsub = typeof socketClient?.onDonationChange === 'function'
+      ? socketClient.onDonationChange(() => {
+          fetchDashboard();
+        })
+      : null;
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+      if (typeof unsub === 'function') unsub();
+    };
   }, [activeTab]);
 
   const ngoName = formData.ngoName || 'Hope Community Kitchen';
@@ -111,8 +129,9 @@ export const NgoDashboardScreen = ({ onLogout }) => {
 
             {/* 8. Map Preview Widget */}
             <View style={styles.mapPreviewWrapper}>
-              <Text style={styles.sectionHeader}>SURPLUS & DONOR MAP</Text>
-              <LocationPickerMap initialAddress={formData.ngoAddress || 'Koti, Hyderabad'} />
+              <LocationPickerMap
+                initialAddress={typeof formData.ngoAddress === 'string' ? formData.ngoAddress : (formData.ngoAddress?.address || 'Koti Community Center, Hyderabad')}
+              />
             </View>
 
             {/* 9. NGO Impact Analytics Grid */}

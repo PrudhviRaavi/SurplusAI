@@ -65,7 +65,7 @@ export const MyTasksScreen = ({ onSelectTask }) => {
               <View style={styles.cardTop}>
                 <Text style={styles.foodTitle}>{t.foodName}</Text>
                 <View style={styles.statusPill}>
-                  <Text style={styles.statusText}>{t.status.replace(/_/g, ' ')}</Text>
+                  <Text style={styles.statusText}>{(t?.status || 'ASSIGNED').replace(/_/g, ' ')}</Text>
                 </View>
               </View>
 

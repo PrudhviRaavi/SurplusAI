@@ -34,7 +34,7 @@ export const donorApiService = {
    */
   createDonation: async (donationData) => {
     const res = await apiClient.post('/donations', donationData);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -44,7 +44,7 @@ export const donorApiService = {
     const queryString = new URLSearchParams(params).toString();
     const endpoint = queryString ? `/donations/my?${queryString}` : '/donations/my';
     const res = await apiClient.get(endpoint);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -52,7 +52,7 @@ export const donorApiService = {
    */
   getDonationById: async (donationId) => {
     const res = await apiClient.get(`/donations/${donationId}`);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -60,7 +60,7 @@ export const donorApiService = {
    */
   updateDonation: async (donationId, updateData) => {
     const res = await apiClient.put(`/donations/${donationId}`, updateData);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -68,7 +68,7 @@ export const donorApiService = {
    */
   deleteOrCancelDonation: async (donationId) => {
     const res = await apiClient.delete(`/donations/${donationId}`);
-    return res;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -76,7 +76,7 @@ export const donorApiService = {
    */
   publishDonation: async (donationId) => {
     const res = await apiClient.post(`/donations/${donationId}/publish`);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**

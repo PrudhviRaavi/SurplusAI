@@ -49,7 +49,7 @@ export const MyClaimsScreen = ({ onSelectClaim }) => {
               <View style={styles.cardTop}>
                 <Text style={styles.foodTitle}>{d.foodName}</Text>
                 <View style={styles.statusPill}>
-                  <Text style={styles.statusText}>{d.status.replace(/_/g, ' ')}</Text>
+                  <Text style={styles.statusText}>{(d?.status || 'CLAIMED').replace(/_/g, ' ')}</Text>
                 </View>
               </View>
 

@@ -14,10 +14,12 @@ import { RecentDonationsList } from '../../components/donor/RecentDonationsList'
 import { ActiveDonationCard } from '../../components/donor/ActiveDonationCard';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
+import { useAppStore } from '../../store/useAppStore';
 
 const filterPills = ['All', 'Active', 'Matched', 'Delivered', 'Past'];
 
 export const DonationsTabScreen = ({ onCreateDonationPress, onViewDonationDetails }) => {
+  const { donationsList } = useAppStore();
   const [selectedFilter, setSelectedFilter] = useState(['All']);
 
   return (
@@ -53,7 +55,10 @@ export const DonationsTabScreen = ({ onCreateDonationPress, onViewDonationDetail
         </View>
 
         {/* Recent & Historical List */}
-        <RecentDonationsList onViewAll={onViewDonationDetails} />
+        <RecentDonationsList
+          donations={donationsList.length > 0 ? donationsList : undefined}
+          onViewAll={onViewDonationDetails}
+        />
       </ScrollView>
     </SafeAreaView>
   );

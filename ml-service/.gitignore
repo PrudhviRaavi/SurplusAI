@@ -16,4 +16,10 @@ env/
 .env
 .env.*
 !.env.example
+datasets/
+runs/
+*.part
+*.zip
+*.tar
+*.tar.gz
 

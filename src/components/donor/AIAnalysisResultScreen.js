@@ -23,6 +23,26 @@ const categoryOptions = [
   'Other',
 ];
 
+const APP_CATEGORY_TO_DISPLAY = {
+  COOKED_MEALS: 'Cooked meals',
+  FRUITS_VEGETABLES: 'Fruits & vegetables',
+  BAKERY: 'Bakery items',
+  PACKAGED_FOOD: 'Packaged food',
+  DAIRY: 'Dairy',
+  BEVERAGES: 'Beverages',
+  OTHER: 'Other',
+};
+
+const DISPLAY_TO_APP_CATEGORY = {
+  'Cooked meals': 'COOKED_MEALS',
+  'Fruits & vegetables': 'FRUITS_VEGETABLES',
+  'Bakery items': 'BAKERY',
+  'Packaged food': 'PACKAGED_FOOD',
+  'Dairy': 'DAIRY',
+  'Beverages': 'BEVERAGES',
+  'Other': 'OTHER',
+};
+
 const unitOptions = ['servings', 'meals', 'pieces', 'kg', 'litres'];
 
 export const AIAnalysisResultScreen = ({ analysisResult, onConfirmDetails, onEditManually }) => {
@@ -40,17 +60,23 @@ export const AIAnalysisResultScreen = ({ analysisResult, onConfirmDetails, onEdi
     estimatedConsumptionWindow: '4–6 hours',
   };
 
+  const initialDisplayCategory =
+    APP_CATEGORY_TO_DISPLAY[result.category] || result.category || 'Cooked meals';
+
   // Donor Override Editable States
-  const [foodName, setFoodName] = useState(result.detectedFood);
-  const [selectedCategory, setSelectedCategory] = useState([result.category || 'Cooked meals']);
+  const [foodName, setFoodName] = useState(result.detectedFood || 'Surplus Food');
+  const [selectedCategory, setSelectedCategory] = useState([initialDisplayCategory]);
   const [quantityVal, setQuantityVal] = useState(String(result.estimatedQuantityNum || '25'));
   const [selectedUnit, setSelectedUnit] = useState(result.quantityUnit || 'servings');
 
   const handleConfirm = () => {
     if (onConfirmDetails) {
+      const chosenDisplay = selectedCategory[0] || 'Cooked meals';
+      const canonicalCategory = DISPLAY_TO_APP_CATEGORY[chosenDisplay] || 'COOKED_MEALS';
       onConfirmDetails({
         foodName,
-        category: selectedCategory[0] || 'Cooked meals',
+        category: canonicalCategory,
+        displayCategory: chosenDisplay,
         quantity: `${quantityVal} ${selectedUnit}`,
         freshnessScore: result.freshnessScore,
         freshnessLabel: result.freshnessLabel,
@@ -90,12 +116,16 @@ export const AIAnalysisResultScreen = ({ analysisResult, onConfirmDetails, onEdi
 
         <Text style={styles.fieldSubLabel}>DETECTED DISHES</Text>
         <View style={styles.itemsPillsRow}>
-          {result.detectedItems.map((item, idx) => (
-            <View key={idx} style={styles.itemPill}>
-              <Ionicons name="pricetag-outline" size={12} color={colors.primary} />
-              <Text style={styles.itemPillText}>{item}</Text>
-            </View>
-          ))}
+          {Array.isArray(result.detectedItems) && result.detectedItems.length > 0 ? (
+            result.detectedItems.map((item, idx) => (
+              <View key={idx} style={styles.itemPill}>
+                <Ionicons name="pricetag-outline" size={12} color={colors.primary} />
+                <Text style={styles.itemPillText}>{item}</Text>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.safetyDisclaimer}>No specific food items detected.</Text>
+          )}
         </View>
 
         <LuxuryInput
@@ -119,49 +149,87 @@ export const AIAnalysisResultScreen = ({ analysisResult, onConfirmDetails, onEdi
         />
       </View>
 
-      {/* 3. Freshness Prediction Card */}
+      {/* 3. Freshness Evaluation Card */}
       <View style={styles.sectionCard}>
         <View style={styles.cardHeaderRow}>
-          <Text style={styles.cardHeaderTag}>FRESHNESS PREDICTION MODEL</Text>
-          <Text style={[styles.freshnessLabelTag, { color: '#10B981' }]}>
-            {result.freshnessLabel}
+          <Text style={styles.cardHeaderTag}>
+            {result.isFreshnessLoaded ? 'TRAINED ML FRESHNESS MODEL' : 'FOOD FRESHNESS ESTIMATION'}
           </Text>
-        </View>
-
-        <View style={styles.freshnessGaugeRow}>
-          <View style={styles.scoreCircle}>
-            <Text style={styles.scoreNum}>{result.freshnessScore}</Text>
-            <Text style={styles.scoreMax}>/ 100</Text>
-          </View>
-
-          <View style={styles.scoreTextCol}>
-            <Text style={styles.freshnessTitle}>Estimated Freshness Score</Text>
-            <Text style={styles.freshnessSub}>
-              Based on detected food type and visual appearance.
+          <View style={[
+            styles.freshnessBadgeBubble,
+            result.isFreshnessLoaded ? styles.modelLoadedBadge : styles.rulesEstimateBadge,
+          ]}>
+            <Text style={styles.freshnessBadgeText}>
+              {result.isFreshnessLoaded ? 'TRAINED ML MODEL' : 'RULES-BASED ESTIMATE'}
             </Text>
           </View>
         </View>
 
+        <Text style={[styles.freshnessLabelTag, { color: result.freshnessScore && result.freshnessScore < 50 ? '#DC2626' : '#10B981', marginTop: 6 }]}>
+          {result.freshnessLabel || 'Inspection Required'}
+        </Text>
+
+        <View style={styles.freshnessGaugeRow}>
+          <View style={styles.scoreCircle}>
+            {result.freshnessScore != null ? (
+              <>
+                <Text style={styles.scoreNum}>{result.freshnessScore}</Text>
+                <Text style={styles.scoreMax}>/ 100</Text>
+              </>
+            ) : (
+              <Ionicons name="clipboard-outline" size={24} color={colors.primary} />
+            )}
+          </View>
+
+          <View style={styles.scoreTextCol}>
+            <Text style={styles.freshnessTitle}>
+              {result.isFreshnessLoaded ? 'ML Model Confidence' : 'Food Safety Estimate'}
+            </Text>
+            <Text style={styles.freshnessSub}>
+              {result.freshnessExplanation ||
+                (result.isFreshnessLoaded
+                  ? 'Inferred by custom computer vision classifier.'
+                  : 'Based on food category, elapsed time, and storage standards.')}
+            </Text>
+          </View>
+        </View>
+
+        {/* Factors Breakdown */}
+        {result.freshnessFactors && result.freshnessFactors.length > 0 && (
+          <View style={styles.factorsList}>
+            {result.freshnessFactors.map((factor, idx) => (
+              <View key={idx} style={styles.factorChip}>
+                <Text style={styles.factorName}>{factor.name}:</Text>
+                <Text style={styles.factorVal}>{factor.value}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         <Text style={styles.safetyDisclaimer}>
-          ⚠️ Estimated freshness AI prediction. Please verify food safety before donation.
+          ⚠️ {result.disclaimer || 'Never infer food safety from appearance alone. Always verify texture, aroma, and temperature before consumption.'}
         </Text>
       </View>
 
       {/* 4. Safe Consumption Estimate Card */}
       <View style={styles.sectionCard}>
-        <Text style={styles.cardHeaderTag}>SAFE CONSUMPTION MODEL</Text>
-        <Text style={styles.fieldSubLabel}>ESTIMATED CONSUMPTION WINDOW</Text>
+        <Text style={styles.cardHeaderTag}>SAFE CONSUMPTION WINDOW</Text>
+        <Text style={styles.fieldSubLabel}>RECOMMENDED CONSUMPTION PERIOD</Text>
         
         <View style={styles.windowBox}>
           <Ionicons name="hourglass-outline" size={24} color={colors.primary} />
           <View style={styles.windowTextCol}>
-            <Text style={styles.windowVal}>Best used within {result.estimatedConsumptionWindow}</Text>
-            <Text style={styles.windowSub}>Recommended storage: Refrigerated at &lt; 5°C</Text>
+            <Text style={styles.windowVal}>
+              {result.estimatedConsumptionWindow
+                ? `Window: ${result.estimatedConsumptionWindow}`
+                : 'Inspect food before consumption'}
+            </Text>
+            <Text style={styles.windowSub}>Recommended storage: Refrigerated at &lt; 5°C or thermal</Text>
           </View>
         </View>
 
         <Text style={styles.safetyDisclaimer}>
-          ℹ️ AI-generated estimate. Always follow appropriate municipal food safety practices.
+          ℹ️ Operational food safety estimate. Follow appropriate municipal food recovery standards.
         </Text>
       </View>
 
@@ -461,5 +529,47 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     marginBottom: 10,
+  },
+  freshnessBadgeBubble: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  modelLoadedBadge: {
+    backgroundColor: '#D1FAE5',
+  },
+  rulesEstimateBadge: {
+    backgroundColor: '#FEF3C7',
+  },
+  freshnessBadgeText: {
+    fontSize: 9,
+    fontFamily: 'Poppins',
+    fontWeight: '800',
+    color: '#92400E',
+  },
+  factorsList: {
+    marginTop: 8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  factorChip: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(75, 99, 85, 0.08)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  factorName: {
+    fontSize: 10,
+    fontFamily: 'Poppins',
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  factorVal: {
+    fontSize: 10,
+    fontFamily: 'Poppins',
+    color: colors.textSecondary,
   },
 });

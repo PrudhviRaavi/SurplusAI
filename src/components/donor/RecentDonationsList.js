@@ -44,32 +44,41 @@ export const RecentDonationsList = ({ donations = defaultRecent, onViewAll }) =>
       </View>
 
       <View style={styles.list}>
-        {donations.map((item) => (
-          <View key={item.id} style={styles.itemCard}>
-            <View style={styles.iconBubble}>
-              <Text style={styles.emoji}>{item.icon}</Text>
-            </View>
+        {donations.map((item, idx) => {
+          const foodName = item.foodName || item.title || 'Food Donation';
+          const qty = typeof item.quantity === 'number' ? `${item.quantity} ${item.quantityUnit || 'units'}` : (item.quantity || '25 meals');
+          const time = item.time || (item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently');
+          const status = item.status || 'Published';
+          const icon = item.icon || '🍱';
+          const statusColor = item.statusColor || (status === 'Delivered' || status === 'Completed' ? '#10B981' : colors.primary);
 
-            <View style={styles.infoCol}>
-              <Text style={styles.foodName}>{item.foodName}</Text>
-              <Text style={styles.timeSub}>
-                {item.quantity} · {item.time}
-              </Text>
-            </View>
+          return (
+            <View key={item.id || item._id || idx} style={styles.itemCard}>
+              <View style={styles.iconBubble}>
+                <Text style={styles.emoji}>{icon}</Text>
+              </View>
 
-            <View
-              style={[
-                styles.statusBadge,
-                { backgroundColor: `${item.statusColor}12` },
-              ]}
-            >
-              <Ionicons name="checkmark-circle" size={12} color={item.statusColor} />
-              <Text style={[styles.statusText, { color: item.statusColor }]}>
-                {item.status}
-              </Text>
+              <View style={styles.infoCol}>
+                <Text style={styles.foodName}>{foodName}</Text>
+                <Text style={styles.timeSub}>
+                  {qty} · {time}
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.statusBadge,
+                  { backgroundColor: `${statusColor}18` },
+                ]}
+              >
+                <Ionicons name="checkmark-circle" size={12} color={statusColor} />
+                <Text style={[styles.statusText, { color: statusColor }]}>
+                  {status}
+                </Text>
+              </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </View>
     </View>
   );

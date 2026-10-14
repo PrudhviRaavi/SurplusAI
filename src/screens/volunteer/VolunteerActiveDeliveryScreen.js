@@ -161,7 +161,7 @@ export const VolunteerActiveDeliveryScreen = ({ donation, onBack, onCompleteAll 
         <View style={styles.stageBadgeRow}>
           <View style={styles.pulseDot} />
           <Text style={styles.stageBadgeText}>
-            STATUS: {deliveryStage.replace(/_/g, ' ')}
+            STATUS: {(deliveryStage || 'ACCEPTED').replace(/_/g, ' ')}
           </Text>
         </View>
 

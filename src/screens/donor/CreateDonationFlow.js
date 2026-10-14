@@ -10,14 +10,17 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { StepProgressBar } from '../../components/common/StepProgressBar';
 import { LuxuryInput } from '../../components/common/LuxuryInput';
 import { LuxuryButton } from '../../components/common/LuxuryButton';
 import { MultiSelectPills } from '../../components/common/MultiSelectPills';
 import { CardGridSelector } from '../../components/common/CardGridSelector';
 import { LocationPickerMap } from '../../components/common/LocationPickerMap';
+import { MinimalBowlSparkLogo } from '../../components/illustrations/FoodShareIllustrations';
 
 // AI Service & Workflow Components
 import { aiService } from '../../services/ai/aiService';
@@ -30,9 +33,6 @@ import { useAppStore } from '../../store/useAppStore';
 import { donorApiService } from '../../services/api/donorApiService';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
-
-const DEFAULT_FOOD_IMG =
-  'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=800&auto=format&fit=crop';
 
 const categories = [
   'Cooked meals',
@@ -53,16 +53,19 @@ const storageConditions = [
   { id: 'frozen', label: 'Frozen', icon: '🧊', description: 'Deep frozen food' },
 ];
 
-export const CreateDonationFlow = ({ onClose, onCompleteFlow }) => {
+export const CreateDonationFlow = ({ onClose, onCompleteFlow, initialScannedData }) => {
   const { addDonation, formData } = useAppStore();
-  const [currentStep, setCurrentStep] = useState(1); // 1 to 8
+  const [currentStep, setCurrentStep] = useState(initialScannedData ? 4 : 1); // Jump to review if prefilled
 
-  // Workflow Form State (Preserved across steps)
-  const [imageUri, setImageUri] = useState(DEFAULT_FOOD_IMG);
-  const [foodName, setFoodName] = useState('Fresh Vegetable Biryani');
-  const [selectedCategory, setSelectedCategory] = useState(['Cooked meals']);
-  const [quantityVal, setQuantityVal] = useState('25');
-  const [quantityUnit, setQuantityUnit] = useState('meals');
+  // Workflow Form State (Preserved across steps) - defaults to null (no preset/default image)
+  const [imageUri, setImageUri] = useState(initialScannedData?.imageUri || null);
+  const [imageBase64, setImageBase64] = useState(initialScannedData?.imageBase64 || null);
+  const [foodName, setFoodName] = useState(initialScannedData?.foodName || '');
+  const [selectedCategory, setSelectedCategory] = useState(
+    initialScannedData?.displayCategory ? [initialScannedData.displayCategory] : ['Cooked meals']
+  );
+  const [quantityVal, setQuantityVal] = useState(String(initialScannedData?.quantityVal || ''));
+  const [quantityUnit, setQuantityUnit] = useState(initialScannedData?.quantityUnit || 'meals');
   const [prepTime, setPrepTime] = useState('Today, 1:00 PM');
   const [bestBefore, setBestBefore] = useState('Today, 6:00 PM');
   const [storageCondition, setStorageCondition] = useState('refrigerated');
@@ -70,13 +73,103 @@ export const CreateDonationFlow = ({ onClose, onCompleteFlow }) => {
   const [pickupAddress, setPickupAddress] = useState(
     formData.donorAddress || '124 Luxury Boulevard, Jubilee Hills, Hyderabad'
   );
+  const [pickupCoords, setPickupCoords] = useState({ latitude: 17.43, longitude: 78.40 });
   const [pickupStart, setPickupStart] = useState('6:00 PM');
   const [pickupEnd, setPickupEnd] = useState('8:00 PM');
-  const [notes, setNotes] = useState('Packaged in individual hygienic foil boxes.');
+  const [notes, setNotes] = useState(
+    initialScannedData?.foodName
+      ? `AI Verified (${initialScannedData.foodName}). Packaged securely.`
+      : ''
+  );
   const [createdDonationId, setCreatedDonationId] = useState('DON-8842');
 
   // AI Service Result State
-  const [aiAnalysisResult, setAiAnalysisResult] = useState(null);
+  const [aiAnalysisResult, setAiAnalysisResult] = useState(initialScannedData?.analysisResult || null);
+
+  /**
+   * Captures a real photo using device camera
+   */
+  const handleTakePhoto = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permissionResult.granted) {
+        const msg = 'Camera permission is required to capture food photos for your donation.';
+        if (Platform.OS === 'web') {
+          window.alert(msg);
+        } else {
+          Alert.alert('Camera Permission Required', msg);
+        }
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        base64: true,
+        allowsEditing: false,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      setImageUri(asset.uri);
+      setImageBase64(asset.base64 || null);
+    } catch (err) {
+      console.warn('[CreateDonationFlow] Error capturing photo:', err);
+      const msg = 'Could not access camera. Please check camera permissions and try again.';
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Camera Error', msg);
+      }
+    }
+  };
+
+  /**
+   * Selects an existing food photo from the device photo gallery
+   */
+  const handleChooseFromGallery = async () => {
+    try {
+      try {
+        const permResult = await ImagePicker.getMediaLibraryPermissionsAsync();
+        if (!permResult.granted && permResult.canAskAgain) {
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        }
+      } catch (permErr) {
+        console.info('[CreateDonationFlow] Media library check notice:', permErr.message);
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        base64: true,
+        allowsEditing: false,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const asset = result.assets[0];
+      setImageUri(asset.uri);
+      setImageBase64(asset.base64 || null);
+    } catch (err) {
+      console.warn('[CreateDonationFlow] Error choosing from gallery:', err);
+      const msg = 'Could not open photo gallery. Please check permissions and try again.';
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Gallery Error', msg);
+      }
+    }
+  };
+
+  const handleRetakePhoto = () => {
+    setImageUri(null);
+    setImageBase64(null);
+  };
 
   const handleNextStep = () => {
     if (currentStep < 8) setCurrentStep(currentStep + 1);
@@ -91,7 +184,17 @@ export const CreateDonationFlow = ({ onClose, onCompleteFlow }) => {
     if (result && result.success) {
       setAiAnalysisResult(result);
       setFoodName(result.detectedFood || foodName);
-      setSelectedCategory([result.category || 'Cooked meals']);
+      const categoryMap = {
+        COOKED_MEALS: 'Cooked meals',
+        FRUITS_VEGETABLES: 'Fruits & vegetables',
+        BAKERY: 'Bakery items',
+        PACKAGED_FOOD: 'Packaged food',
+        DAIRY: 'Dairy',
+        BEVERAGES: 'Beverages',
+        OTHER: 'Other',
+      };
+      const displayCat = categoryMap[result.category] || result.category || 'Cooked meals';
+      setSelectedCategory([displayCat]);
       setQuantityVal(String(result.estimatedQuantityNum || quantityVal));
       setQuantityUnit(result.quantityUnit || quantityUnit);
     }
@@ -101,18 +204,24 @@ export const CreateDonationFlow = ({ onClose, onCompleteFlow }) => {
   const handleConfirmAIResults = (confirmedData) => {
     if (confirmedData) {
       setFoodName(confirmedData.foodName);
-      setSelectedCategory([confirmedData.category]);
+      setSelectedCategory([confirmedData.displayCategory || confirmedData.category || 'Cooked meals']);
     }
     setCurrentStep(5); // Continue to Donation Details & Safety
   };
 
   const handlePublish = async () => {
     const newId = `DON-${Math.floor(1000 + Math.random() * 9000)}`;
-    setCreatedDonationId(newId);
+
+    const coordsArray = [
+      Number(pickupCoords.longitude) || 78.40,
+      Number(pickupCoords.latitude) || 17.43,
+    ];
+
+    let createdRecord = null;
 
     // Call real backend API to create and publish donation
     try {
-      const created = await donorApiService.createDonation({
+      createdRecord = await donorApiService.createDonation({
         foodName,
         category: selectedCategory[0] || 'Cooked meals',
         quantity: Number(quantityVal) || 25,
@@ -123,18 +232,32 @@ export const CreateDonationFlow = ({ onClose, onCompleteFlow }) => {
         pickupStartTime: new Date().toISOString(),
         pickupEndTime: new Date(Date.now() + 4 * 3600000).toISOString(),
         notes,
-        location: { type: 'Point', coordinates: [78.40, 17.43] },
+        location: {
+          type: 'Point',
+          coordinates: coordsArray,
+        },
       });
 
-      if (created?._id) {
-        await donorApiService.publishDonation(created._id);
+      const actualId = createdRecord?._id || createdRecord?.id || newId;
+      setCreatedDonationId(actualId);
+
+      if (createdRecord?._id || createdRecord?.id) {
+        await donorApiService.publishDonation(createdRecord._id || createdRecord.id);
       }
     } catch (err) {
       console.warn('[DonorApiService publish notice]', err.message);
+      const msg = err.message || 'Failed to publish donation to server.';
+      if (Platform.OS === 'web') {
+        window.alert(msg);
+      } else {
+        Alert.alert('Publish Error', msg);
+      }
+      return;
     }
 
     const donationObject = {
-      id: newId,
+      id: createdRecord?._id || createdRecord?.id || newId,
+      _id: createdRecord?._id || createdRecord?.id || newId,
       donorId: 'DNR-001',
       foodName,
       category: selectedCategory[0] || 'Cooked meals',
@@ -147,14 +270,17 @@ export const CreateDonationFlow = ({ onClose, onCompleteFlow }) => {
       freshnessScore: aiAnalysisResult?.freshnessScore || 94,
       freshnessLabel: aiAnalysisResult?.freshnessLabel || 'Good',
       aiConfidence: aiAnalysisResult?.confidence || '94%',
-      pickupLocation: { latitude: 17.43, longitude: 78.40 },
+      pickupLocation: {
+        latitude: pickupCoords.latitude,
+        longitude: pickupCoords.longitude,
+      },
       pickupAddress,
       pickupStartTime: pickupStart,
       pickupEndTime: pickupEnd,
       notes,
       isFoodSafe,
       status: 'Published',
-      createdAt: new Date().toISOString(),
+      createdAt: createdRecord?.createdAt || new Date().toISOString(),
       claimedBy: null,
       volunteerId: null,
     };
@@ -202,12 +328,9 @@ export const CreateDonationFlow = ({ onClose, onCompleteFlow }) => {
           {/* STEP 1: INTRO SCREEN */}
           {currentStep === 1 && (
             <View style={styles.stepContainer}>
-              <View style={styles.heroImageFrame}>
-                <Image
-                  source={{ uri: DEFAULT_FOOD_IMG }}
-                  style={styles.heroImg}
-                  resizeMode="cover"
-                />
+              <View style={styles.heroBannerFrame}>
+                <MinimalBowlSparkLogo size={84} glowOpacity={0.6} />
+                <Text style={styles.heroBannerTag}>FOOD RESCUE NETWORK</Text>
               </View>
 
               <View style={styles.titleCenter}>
@@ -230,7 +353,7 @@ export const CreateDonationFlow = ({ onClose, onCompleteFlow }) => {
             </View>
           )}
 
-          {/* STEP 2: FOOD PHOTO SELECTION */}
+          {/* STEP 2: FOOD PHOTO SELECTION (STEP 01 OF 06: What are you sharing?) */}
           {currentStep === 2 && (
             <View style={styles.stepContainer}>
               <View style={styles.titleSection}>
@@ -245,22 +368,22 @@ export const CreateDonationFlow = ({ onClose, onCompleteFlow }) => {
 
               {imageUri ? (
                 <View style={styles.previewBox}>
-                  <Image source={{ uri: imageUri }} style={styles.previewImg} resizeMode="cover" />
+                  <Image source={{ uri: imageUri }} style={styles.previewImg} resizeMode="contain" />
                   <View style={styles.previewActions}>
                     <TouchableOpacity
-                      onPress={() => setImageUri(null)}
+                      onPress={handleRetakePhoto}
                       style={styles.retakeBtn}
                       activeOpacity={0.8}
                     >
                       <Ionicons name="refresh" size={16} color="#DC2626" />
-                      <Text style={styles.retakeText}>Retake Photo</Text>
+                      <Text style={styles.retakeText}>Change Photo</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
               ) : (
                 <View style={styles.photoActionsBox}>
                   <TouchableOpacity
-                    onPress={() => setImageUri(DEFAULT_FOOD_IMG)}
+                    onPress={handleTakePhoto}
                     style={styles.photoActionCard}
                     activeOpacity={0.8}
                   >
@@ -268,11 +391,11 @@ export const CreateDonationFlow = ({ onClose, onCompleteFlow }) => {
                       <Ionicons name="camera-outline" size={28} color={colors.primary} />
                     </View>
                     <Text style={styles.photoActionTitle}>Take Photo</Text>
-                    <Text style={styles.photoActionSub}>Use camera to scan fresh food</Text>
+                    <Text style={styles.photoActionSub}>Use camera to capture food</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    onPress={() => setImageUri(DEFAULT_FOOD_IMG)}
+                    onPress={handleChooseFromGallery}
                     style={styles.photoActionCard}
                     activeOpacity={0.8}
                   >
@@ -280,7 +403,7 @@ export const CreateDonationFlow = ({ onClose, onCompleteFlow }) => {
                       <Ionicons name="images-outline" size={28} color={colors.primary} />
                     </View>
                     <Text style={styles.photoActionTitle}>Choose from Gallery</Text>
-                    <Text style={styles.photoActionSub}>Select existing food photo</Text>
+                    <Text style={styles.photoActionSub}>Select photo from device</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -293,6 +416,14 @@ export const CreateDonationFlow = ({ onClose, onCompleteFlow }) => {
                 disabled={!imageUri}
                 style={{ marginTop: 24 }}
               />
+
+              <TouchableOpacity
+                onPress={() => setCurrentStep(5)}
+                style={styles.skipToManualBtn}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.skipToManualText}>Skip AI and Enter Manually →</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -300,6 +431,7 @@ export const CreateDonationFlow = ({ onClose, onCompleteFlow }) => {
           {currentStep === 3 && (
             <AIAnalysisScreen
               imageUri={imageUri}
+              imageBase64={imageBase64}
               onCompleteAnalysis={handleAIAnalysisComplete}
               onSkipManual={() => setCurrentStep(5)}
             />
@@ -476,7 +608,17 @@ export const CreateDonationFlow = ({ onClose, onCompleteFlow }) => {
               <Text style={styles.fieldLabel}>PICKUP LOCATION</Text>
               <LocationPickerMap
                 initialAddress={pickupAddress}
-                onLocationConfirm={(addr) => setPickupAddress(addr)}
+                initialCoords={pickupCoords}
+                onLocationConfirm={(loc) => {
+                  if (typeof loc === 'string') {
+                    setPickupAddress(loc);
+                  } else if (loc && typeof loc === 'object') {
+                    if (loc.address) setPickupAddress(loc.address);
+                    if (loc.latitude && loc.longitude) {
+                      setPickupCoords({ latitude: loc.latitude, longitude: loc.longitude });
+                    }
+                  }
+                }}
               />
 
               <Text style={styles.fieldLabel}>PICKUP TIME WINDOW</Text>
@@ -624,6 +766,25 @@ const styles = StyleSheet.create({
   stepContainer: {
     width: '100%',
   },
+  heroBannerFrame: {
+    height: 180,
+    borderRadius: 24,
+    overflow: 'hidden',
+    marginBottom: 20,
+    backgroundColor: 'rgba(75, 99, 85, 0.08)',
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroBannerTag: {
+    fontSize: 10,
+    fontFamily: 'Poppins',
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 1.2,
+    marginTop: 10,
+  },
   heroImageFrame: {
     height: 200,
     borderRadius: 24,
@@ -706,6 +867,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1.5,
     borderColor: colors.border,
+    backgroundColor: '#0F172A',
     marginBottom: 16,
   },
   previewImg: {
@@ -727,6 +889,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins',
     fontWeight: '700',
     color: '#DC2626',
+  },
+  skipToManualBtn: {
+    alignSelf: 'center',
+    marginTop: 14,
+    paddingVertical: 8,
+  },
+  skipToManualText: {
+    fontFamily: 'Poppins',
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
   },
   fieldLabel: {
     fontSize: 11,

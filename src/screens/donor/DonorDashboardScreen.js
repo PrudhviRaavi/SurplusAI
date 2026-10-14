@@ -42,6 +42,7 @@ export const DonorDashboardScreen = ({ onLogout }) => {
   const [isAiScanOpen, setIsAiScanOpen] = useState(false);
   const [isClaimDetailOpen, setIsClaimDetailOpen] = useState(false);
   const [selectedDonation, setSelectedDonation] = useState(null);
+  const [aiScannedData, setAiScannedData] = useState(null);
 
   const userName = formData.fullName || formData.donorContactName || 'Prudhvi';
   const activeDonation = donationsList[0] || null;
@@ -93,7 +94,10 @@ export const DonorDashboardScreen = ({ onLogout }) => {
             <ImpactStatsGrid rescuedKg={128} mealsShared={312} totalDonations={24} impactScore={8.6} />
 
             {/* 6. Recent Donations List */}
-            <RecentDonationsList onViewAll={() => setActiveTab('Donations')} />
+            <RecentDonationsList
+              donations={donationsList.length > 0 ? donationsList : undefined}
+              onViewAll={() => setActiveTab('Donations')}
+            />
 
             {/* 7. Emotional Impact Card */}
             <EmotionalImpactBanner mealsServed={312} co2AvoidedKg={284} />
@@ -106,8 +110,9 @@ export const DonorDashboardScreen = ({ onLogout }) => {
 
             {/* 10. Map Preview */}
             <View style={styles.mapPreviewWrapper}>
-              <Text style={styles.sectionHeader}>NEARBY REDISTRIBUTION MAP</Text>
-              <LocationPickerMap initialAddress={formData.donorAddress || 'Jubilee Hills, Hyderabad'} />
+              <LocationPickerMap
+                initialAddress={typeof formData.donorAddress === 'string' ? formData.donorAddress : (formData.donorAddress?.address || '124 Luxury Boulevard, Jubilee Hills, Hyderabad')}
+              />
             </View>
           </ScrollView>
         )}
@@ -132,15 +137,24 @@ export const DonorDashboardScreen = ({ onLogout }) => {
       />
 
       {/* CREATE DONATION MODAL */}
+      {/* CREATE DONATION FLOW MODAL */}
       <Modal
         visible={isCreateModalOpen}
         animationType="slide"
-        onRequestClose={() => setIsCreateModalOpen(false)}
+        onRequestClose={() => {
+          setIsCreateModalOpen(false);
+          setAiScannedData(null);
+        }}
       >
         <CreateDonationModalScreen
-          onClose={() => setIsCreateModalOpen(false)}
+          initialScannedData={aiScannedData}
+          onClose={() => {
+            setIsCreateModalOpen(false);
+            setAiScannedData(null);
+          }}
           onSubmitDonation={() => {
             setIsCreateModalOpen(false);
+            setAiScannedData(null);
             setActiveTab('Donations');
           }}
           onTriggerAIScan={() => setIsAiScanOpen(true)}
@@ -174,7 +188,14 @@ export const DonorDashboardScreen = ({ onLogout }) => {
         animationType="slide"
         onRequestClose={() => setIsAiScanOpen(false)}
       >
-        <AIScanModalScreen onClose={() => setIsAiScanOpen(false)} />
+        <AIScanModalScreen
+          onClose={() => setIsAiScanOpen(false)}
+          onContinueToDonation={(scannedData) => {
+            setIsAiScanOpen(false);
+            setAiScannedData(scannedData);
+            setIsCreateModalOpen(true);
+          }}
+        />
       </Modal>
     </SafeAreaView>
   );

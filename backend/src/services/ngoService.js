@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const { User, NgoProfile, Donation, Claim, Impact, DonorProfile } = require('../models');
 const { FOOD_CATEGORIES, DONATION_STATUS, CLAIM_STATUS } = require('../utils/constants');
 const matchingService = require('./matchingService');
+const { broadcastDonationUpdated, broadcastTaskUpdated } = require('../socket');
 
 /**
  * Validate MongoDB ObjectId
@@ -305,13 +306,37 @@ const discoverAvailableDonations = async (query = {}, ngoUserId) => {
         );
       }
 
+      const msLeft = new Date(donation.expiryTime).getTime() - Date.now();
+      const hoursLeft = Math.max(0, Math.floor(msLeft / 3600000));
+      const minsLeft = Math.max(0, Math.floor((msLeft % 3600000) / 60000));
+      const timeLeft = hoursLeft > 0 ? `${hoursLeft}h ${minsLeft}m remaining` : `${minsLeft}m remaining`;
+      const urgency = hoursLeft < 3 ? 'HIGH URGENCY' : 'MEDIUM URGENCY';
+      const categoryIconMap = {
+        COOKED_MEALS: '🍱',
+        FRUITS_VEGETABLES: '🍎',
+        BAKERY: '🥐',
+        PACKAGED_FOOD: '📦',
+        DAIRY: '🥛',
+        BEVERAGES: '🧃',
+        OTHER: '🍲',
+      };
+      const icon = categoryIconMap[donation.foodCategory] || '🍱';
+
       return {
         id: donation._id.toString(),
         _id: donation._id.toString(),
+        foodName: donation.title,
         title: donation.title,
+        donorName: donorOrgName,
+        distance: distanceKm !== null ? `${distanceKm} km away` : 'Nearby',
+        freshness: donation.freshnessStatus || 'Good',
+        timeLeft,
+        urgency,
+        icon,
         description: donation.description,
         foodCategory: donation.foodCategory,
-        quantity: donation.quantity,
+        quantity: `${donation.quantity} ${donation.quantityUnit.toLowerCase()}`,
+        rawQuantity: donation.quantity,
         quantityUnit: donation.quantityUnit,
         estimatedMeals: donation.estimatedMeals,
         foodImage: donation.foodImage,
@@ -604,7 +629,11 @@ const claimDonation = async (donationId, ngoUserId, claimData = {}) => {
     // 6. Initialize eligible delivery task for volunteer assignment
     try {
       const deliveryService = require('./deliveryService');
-      await deliveryService.createDeliveryForClaim(claimedDonation, claim, ngoProfile);
+      const delivery = await deliveryService.createDeliveryForClaim(claimedDonation, claim, ngoProfile);
+      try {
+        broadcastDonationUpdated(claimedDonation);
+        if (delivery) broadcastTaskUpdated(delivery);
+      } catch (_) {}
     } catch (deliveryErr) {
       console.warn('[Delivery] Delivery creation notice:', deliveryErr.message);
     }
@@ -795,6 +824,16 @@ const getNgoDashboardData = async (ngoUserId) => {
     .limit(3)
     .lean();
 
+  const categoryIconMap = {
+    COOKED_MEALS: '🍱',
+    FRUITS_VEGETABLES: '🍎',
+    BAKERY: '🥐',
+    PACKAGED_FOOD: '📦',
+    DAIRY: '🥛',
+    BEVERAGES: '🧃',
+    OTHER: '🍲',
+  };
+
   const formattedUrgent = urgentDonations.map((d) => {
     let distanceKm = 2.0;
     if (ngoProfile?.location?.coordinates && d.location?.coordinates) {
@@ -805,6 +844,13 @@ const getNgoDashboardData = async (ngoUserId) => {
     }
     const match = ngoProfile ? matchingService.calculateMatchScore(d, ngoProfile) : { matchScore: 85 };
 
+    const msLeft = new Date(d.expiryTime).getTime() - Date.now();
+    const hoursLeft = Math.max(0, Math.floor(msLeft / 3600000));
+    const minsLeft = Math.max(0, Math.floor((msLeft % 3600000) / 60000));
+    const timeLeft = hoursLeft > 0 ? `${hoursLeft}h ${minsLeft}m remaining` : `${minsLeft}m remaining`;
+    const urgency = hoursLeft < 3 ? 'HIGH URGENCY' : 'MEDIUM URGENCY';
+    const icon = categoryIconMap[d.foodCategory] || '🍱';
+
     return {
       id: d._id.toString(),
       _id: d._id.toString(),
@@ -812,8 +858,13 @@ const getNgoDashboardData = async (ngoUserId) => {
       quantity: `${d.quantity} ${d.quantityUnit.toLowerCase()}`,
       donorName: d.donorId?.fullName || 'Verified Donor',
       distance: `${distanceKm} km away`,
-      freshness: d.freshnessStatus,
+      freshness: d.freshnessStatus || 'Good',
       expiryTime: d.expiryTime,
+      timeLeft,
+      urgency,
+      icon,
+      foodCategory: d.foodCategory,
+      image: d.foodImage || '',
       matchScore: match.matchScore,
     };
   });

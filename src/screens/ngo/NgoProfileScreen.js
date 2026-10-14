@@ -35,9 +35,12 @@ export const NgoProfileScreen = ({ onLogout, onOpenUpdateRequirements }) => {
   }, []);
 
   const ngoName = profileData?.profile?.organizationName || formData.ngoName || 'Hope Community Foundation';
-  const regNumber = profileData?.profile?.registrationNumber || formData.ngoRegNumber || 'NGO-8842-HYD';
   const contactName = profileData?.profile?.representativeName || profileData?.user?.fullName || formData.ngoContactName || 'Ananya Sharma';
-  const address = profileData?.profile?.address?.street || formData.ngoAddress || 'Koti Community Center, Hyderabad';
+  const regNumber = profileData?.profile?.registrationNumber || formData.ngoRegNumber || 'NGO-8842-HYD';
+  const rawAddress = profileData?.profile?.address?.street || formData.ngoAddress;
+  const address = typeof rawAddress === 'string'
+    ? rawAddress
+    : (rawAddress?.address || 'Koti Community Center, Hyderabad');
 
   return (
     <SafeAreaView style={styles.safeArea}>

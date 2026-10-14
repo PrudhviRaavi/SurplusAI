@@ -91,9 +91,9 @@ const initSocketServer = (httpServer) => {
       socket.join(`user:${socket.user.id}`);
     }
 
-    // If administrator, join administrative broadcast room
-    if (socket.user?.role === 'ADMIN') {
-      socket.join('role:ADMIN');
+    // Join role-specific broadcast room
+    if (socket.user?.role) {
+      socket.join(`role:${socket.user.role}`);
     }
 
     // Register modular event handlers
@@ -107,9 +107,32 @@ const initSocketServer = (httpServer) => {
   return io;
 };
 
+const broadcastDonationCreated = (donation) => {
+  if (ioInstance && donation) {
+    ioInstance.to('role:NGO').emit('donation:created', donation);
+    ioInstance.to('role:VOLUNTEER').emit('donation:created', donation);
+    ioInstance.emit('donation:published', donation);
+  }
+};
+
+const broadcastDonationUpdated = (donation) => {
+  if (ioInstance && donation) {
+    ioInstance.emit('donation:updated', donation);
+  }
+};
+
+const broadcastTaskUpdated = (task) => {
+  if (ioInstance && task) {
+    ioInstance.emit('task:updated', task);
+  }
+};
+
 module.exports = {
   initSocketServer,
   getIO,
   emitToUser,
   emitToRole,
+  broadcastDonationCreated,
+  broadcastDonationUpdated,
+  broadcastTaskUpdated,
 };

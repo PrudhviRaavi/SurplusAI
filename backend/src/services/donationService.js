@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const { Donation, AIAnalysis, DonorProfile } = require('../models');
 const { FOOD_CATEGORIES, QUANTITY_UNITS, DONATION_STATUS } = require('../utils/constants');
 const { analyzeFoodImage } = require('./aiAnalysisService');
+const { broadcastDonationCreated, broadcastDonationUpdated } = require('../socket');
 
 /**
  * Helper to normalize food category to match schema enum
@@ -389,6 +390,12 @@ const publishDonation = async (donationId, donorId) => {
   donation.publishedAt = new Date();
   await donation.save();
 
+  try {
+    broadcastDonationCreated(donation);
+  } catch (socketErr) {
+    console.warn('[donationService] Socket broadcast notice:', socketErr.message);
+  }
+
   return donation;
 };
 
@@ -440,11 +447,14 @@ const requestFoodAnalysis = async (donationId, donorId) => {
   }
 
   // Map food detection items cleanly
-  const foodDetectionItems = (mlResult.foodDetection || []).map((det) => ({
-    itemName: det.className || 'Food Item',
-    category: donation.foodCategory || 'OTHER',
-    confidence: typeof det.confidence === 'number' ? det.confidence : 0,
-  }));
+  const foodDetectionItems = (mlResult.foodDetection || []).map((det) => {
+    const isDetCategoryValid = det.category && FOOD_CATEGORIES.includes(det.category);
+    return {
+      itemName: det.itemName || det.className || 'Food Item',
+      category: isDetCategoryValid ? det.category : (donation.foodCategory || 'OTHER'),
+      confidence: typeof det.confidence === 'number' ? det.confidence : 0,
+    };
+  });
 
   // Map freshness label and confidence
   const freshLabel = mlResult.freshnessPrediction?.label || 'UNKNOWN';

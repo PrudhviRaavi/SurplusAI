@@ -12,9 +12,6 @@ import { aiService } from '../../services/ai/aiService';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
-const DEFAULT_FOOD_IMG =
-  'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=800&auto=format&fit=crop';
-
 const analysisStages = [
   { id: 1, text: 'Looking at your food...' },
   { id: 2, text: 'Identifying food items...' },
@@ -23,7 +20,12 @@ const analysisStages = [
   { id: 5, text: 'Preparing your donation...' },
 ];
 
-export const AIAnalysisScreen = ({ imageUri, onCompleteAnalysis, onSkipManual }) => {
+export const AIAnalysisScreen = ({
+  imageUri,
+  imageBase64,
+  onCompleteAnalysis,
+  onSkipManual,
+}) => {
   const [currentStageIdx, setCurrentStageIdx] = useState(0);
   const [errorMessage, setErrorMessage] = useState(null);
   const [isDone, setIsDone] = useState(false);
@@ -35,6 +37,11 @@ export const AIAnalysisScreen = ({ imageUri, onCompleteAnalysis, onSkipManual })
     setErrorMessage(null);
     setIsDone(false);
     setCurrentStageIdx(0);
+
+    if (!imageUri) {
+      setErrorMessage('Please select or capture a food photo first.');
+      return;
+    }
 
     // Laser scanning animation
     Animated.loop(
@@ -73,8 +80,12 @@ export const AIAnalysisScreen = ({ imageUri, onCompleteAnalysis, onSkipManual })
   };
 
   const executeAnalysis = async () => {
-    let stageInterval;
-    stageInterval = setInterval(() => {
+    if (!imageUri) {
+      setErrorMessage('Please select or capture a food photo first.');
+      return;
+    }
+
+    let stageInterval = setInterval(() => {
       setCurrentStageIdx((prev) => {
         if (prev < analysisStages.length - 1) {
           return prev + 1;
@@ -85,15 +96,19 @@ export const AIAnalysisScreen = ({ imageUri, onCompleteAnalysis, onSkipManual })
       });
     }, 700);
 
-    const result = await aiService.analyzeFoodImage(imageUri || DEFAULT_FOOD_IMG);
+    const result = await aiService.analyzeFoodImage(imageUri, {
+      base64: imageBase64,
+    });
 
-    if (result.success) {
+    if (stageInterval) clearInterval(stageInterval);
+
+    if (result && result.success) {
       setTimeout(() => {
         setIsDone(true);
         if (onCompleteAnalysis) onCompleteAnalysis(result);
       }, 500);
     } else {
-      setErrorMessage(result.error || "We couldn't analyze this image.");
+      setErrorMessage(result?.error || "We couldn't analyze this image.");
     }
   };
 
@@ -125,13 +140,20 @@ export const AIAnalysisScreen = ({ imageUri, onCompleteAnalysis, onSkipManual })
 
       {/* Prominent Image Frame with Scanning Laser */}
       <Animated.View style={[styles.imageFrame, { transform: [{ scale: pulseAnim }] }]}>
-        <Image
-          source={{ uri: imageUri || DEFAULT_FOOD_IMG }}
-          style={styles.foodImg}
-          resizeMode="cover"
-        />
+        {imageUri ? (
+          <Image
+            source={{ uri: imageUri }}
+            style={styles.foodImg}
+            resizeMode="contain"
+          />
+        ) : (
+          <View style={styles.emptyImgFrame}>
+            <Ionicons name="camera-outline" size={48} color="#94A3B8" />
+            <Text style={styles.emptyImgText}>No image selected</Text>
+          </View>
+        )}
 
-        {!errorMessage && !isDone && (
+        {imageUri && !errorMessage && !isDone && (
           <>
             <View style={styles.scanOverlay} />
             <Animated.View style={[styles.laserLine, { transform: [{ translateY }] }]} />
@@ -256,6 +278,20 @@ const styles = StyleSheet.create({
   foodImg: {
     width: '100%',
     height: '100%',
+    backgroundColor: '#0F172A',
+  },
+  emptyImgFrame: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyImgText: {
+    fontFamily: 'Poppins',
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 6,
   },
   scanOverlay: {
     ...StyleSheet.absoluteFillObject,

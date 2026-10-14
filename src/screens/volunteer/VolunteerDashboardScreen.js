@@ -8,16 +8,19 @@ import {
   StatusBar,
   Modal,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { VolunteerHeader } from '../../components/volunteer/VolunteerHeader';
 import { AvailabilityStatusCard } from '../../components/volunteer/AvailabilityStatusCard';
 import { ActiveDeliveryCard } from '../../components/volunteer/ActiveDeliveryCard';
-import { NearbyTasksList } from '../../components/volunteer/NearbyTasksList';
+import { NearbyTasksList, defaultTasks } from '../../components/volunteer/NearbyTasksList';
 import { SmartRouteCard } from '../../components/volunteer/SmartRouteCard';
 import { VolunteerImpactGrid } from '../../components/volunteer/VolunteerImpactGrid';
 import { RecognitionBadgesCard } from '../../components/volunteer/RecognitionBadgesCard';
 import { VolunteerHistoryList } from '../../components/volunteer/VolunteerHistoryList';
 import { LocationPickerMap } from '../../components/common/LocationPickerMap';
+import { OpenStreetMapViewer } from '../../components/common/OpenStreetMapViewer';
 import { VolunteerBottomNav } from '../../components/volunteer/VolunteerBottomNav';
+import { volunteerRouteService } from '../../services/routes/volunteerRouteService';
 
 // Sub-Screens & Modals
 import { VolunteerTasksTabScreen } from './VolunteerTasksTabScreen';
@@ -31,6 +34,7 @@ import { VolunteerNotificationsModal } from './VolunteerNotificationsModal';
 import { useAppStore } from '../../store/useAppStore';
 import { colors } from '../../theme/colors';
 import { volunteerApiService } from '../../services/api/volunteerApiService';
+import { socketClient } from '../../services/api/socketClient';
 
 export const VolunteerDashboardScreen = ({ onLogout }) => {
   const { formData, donationsList } = useAppStore();
@@ -43,25 +47,88 @@ export const VolunteerDashboardScreen = ({ onLogout }) => {
   const [isNotifModalOpen, setIsNotifModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [dashboardData, setDashboardData] = useState(null);
+  const [routeData, setRouteData] = useState(() => volunteerRouteService.buildDemoRoute(defaultTasks));
 
   useEffect(() => {
     let isMounted = true;
     const fetchDashboard = async () => {
       try {
         const res = await volunteerApiService.getDashboard();
-        if (res?.data && isMounted) {
-          setDashboardData(res.data);
-          if (res.data.isOnline !== undefined) {
-            setIsOnline(res.data.isOnline);
+        const payload = (res && res.impact) ? res : (res?.data || res);
+        if (payload && isMounted) {
+          setDashboardData(payload);
+          if (payload.isOnline !== undefined) {
+            setIsOnline(payload.isOnline);
           }
         }
       } catch (err) {
         // Fallback to store
       }
     };
+
     fetchDashboard();
-    return () => { isMounted = false; };
+
+    // 10s automatic polling fallback
+    const intervalId = setInterval(fetchDashboard, 10000);
+
+    // Real-time updates via Socket.IO
+    const unsubTask = typeof socketClient?.onTaskChange === 'function'
+      ? socketClient.onTaskChange(() => {
+          fetchDashboard();
+        })
+      : null;
+    const unsubDonation = typeof socketClient?.onDonationChange === 'function'
+      ? socketClient.onDonationChange(() => {
+          fetchDashboard();
+        })
+      : null;
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+      if (typeof unsubTask === 'function') unsubTask();
+      if (typeof unsubDonation === 'function') unsubDonation();
+    };
   }, [activeTab]);
+
+  const displayedTasks = React.useMemo(() => {
+    if (dashboardData?.recentAvailableTasks && dashboardData.recentAvailableTasks.length > 0) {
+      return dashboardData.recentAvailableTasks.map((t) => ({
+        id: t.id || t._id,
+        pickupName: t.donor?.organizationName || t.pickupLocation?.address || t.foodName || 'Donor Location',
+        dropoffName: t.ngo?.organizationName || t.deliveryLocation?.address || 'NGO Community Center',
+        distance: `${t.distanceToPickupKm || t.distanceKm || 2.4} km`,
+        quantity: t.quantity || '25 meals',
+        estTime: `${t.estimatedDurationMins || 18} min`,
+        foodCategory: t.foodCategory || 'Cooked meals',
+        icon: t.icon || '🍱',
+        rawTask: t,
+        pickupLocation: t.pickupLocation,
+        deliveryLocation: t.deliveryLocation,
+      }));
+    }
+    return defaultTasks;
+  }, [dashboardData?.recentAvailableTasks]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const computeRoute = async () => {
+      try {
+        const route = await volunteerRouteService.getOptimizedRouteForTasks(displayedTasks);
+        if (isMounted && route) {
+          setRouteData(route);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setRouteData(volunteerRouteService.buildDemoRoute(displayedTasks));
+        }
+      }
+    };
+    computeRoute();
+    return () => {
+      isMounted = false;
+    };
+  }, [displayedTasks]);
 
   const userName = formData.volFullName || formData.fullName || 'Prudhvi';
   const activeDonation = donationsList[0] || null;
@@ -106,21 +173,7 @@ export const VolunteerDashboardScreen = ({ onLogout }) => {
             {/* 4. Nearby Tasks Opportunities (Only visible when online) */}
             {isOnline ? (
               <NearbyTasksList
-                tasks={
-                  dashboardData?.recentAvailableTasks?.length
-                    ? dashboardData.recentAvailableTasks.map((t) => ({
-                        id: t.id || t._id,
-                        pickupName: t.donor?.organizationName || 'Donor Location',
-                        dropoffName: t.ngo?.organizationName || 'NGO Community Center',
-                        distance: `${t.distanceToPickupKm || 2.4} km`,
-                        quantity: t.quantity || '25 meals',
-                        estTime: `${t.estimatedDurationMins || 18} min`,
-                        foodCategory: t.foodCategory || 'Cooked meals',
-                        icon: '🍱',
-                        rawTask: t,
-                      }))
-                    : undefined
-                }
+                tasks={displayedTasks}
                 onAcceptTask={handleOpenAcceptModal}
               />
             ) : (
@@ -133,13 +186,24 @@ export const VolunteerDashboardScreen = ({ onLogout }) => {
               </View>
             )}
 
-            {/* 5. AI Smart Route Recommendation */}
-            <SmartRouteCard onUseRoute={handleOpenActiveDelivery} />
+            {/* 5. AI Smart Route Recommendation & Stops */}
+            <SmartRouteCard
+              routeData={routeData}
+              onUseRoute={handleOpenActiveDelivery}
+            />
 
-            {/* 6. OpenStreetMap Live Route Preview */}
+            {/* 6. OpenStreetMap Live Route Preview with Stops & Line */}
             <View style={styles.mapPreviewWrapper}>
-              <Text style={styles.sectionHeader}>LIVE ROUTE MAP</Text>
-              <LocationPickerMap initialAddress="Green Leaf Restaurant → Hope Community Kitchen" />
+              <Text style={styles.sectionHeader}>
+                {routeData?.isDemo ? 'ROUTE MAP PREVIEW (DEMO)' : 'LIVE OPTIMIZED ROUTE MAP'}
+              </Text>
+              <OpenStreetMapViewer
+                routeCoordinates={routeData?.route?.coordinates}
+                stops={routeData?.stops}
+                isDemo={routeData?.isDemo}
+                demoLabel={routeData?.demoLabel}
+                height={230}
+              />
             </View>
 
             {/* 7. Volunteer Impact Grid */}
@@ -165,7 +229,12 @@ export const VolunteerDashboardScreen = ({ onLogout }) => {
           />
         )}
 
-        {activeTab === 'Route' && <VolunteerRouteTabScreen />}
+        {activeTab === 'Route' && (
+          <VolunteerRouteTabScreen
+            routeData={routeData}
+            tasks={displayedTasks}
+          />
+        )}
 
         {activeTab === 'Impact' && <VolunteerImpactTabScreen />}
 

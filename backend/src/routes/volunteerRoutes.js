@@ -22,6 +22,7 @@ router.get('/impact', volunteerController.getImpact);
 router.get('/leaderboard', volunteerController.getLeaderboard);
 router.get('/leaderboard/me', volunteerController.getMyRank);
 router.get('/achievements', volunteerController.getAchievements);
+router.post('/route/optimize', volunteerController.optimizeMultiStopRoute);
 
 // 2. Task Discovery & Acceptance
 router.get('/tasks', deliveryController.getAvailableTasks);

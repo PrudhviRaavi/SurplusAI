@@ -7,6 +7,7 @@ const deliveryService = require('../services/deliveryService');
 const impactService = require('../services/impactService');
 const gamificationService = require('../services/gamificationService');
 const achievementService = require('../services/achievementService');
+const routeOptimizationService = require('../services/routeOptimizationService');
 const { sendSuccess } = require('../utils/apiResponse');
 
 /**
@@ -100,6 +101,25 @@ const getAchievements = async (req, res, next) => {
   }
 };
 
+/**
+ * POST /api/volunteer/route/optimize
+ * Optimizes a multi-stop dispatch route for volunteer requests using A*
+ */
+const optimizeMultiStopRoute = async (req, res, next) => {
+  try {
+    const { stops } = req.body;
+    if (!Array.isArray(stops) || stops.length < 2) {
+      const err = new Error('At least 2 route stops with valid coordinates are required');
+      err.statusCode = 400;
+      throw err;
+    }
+    const routePlan = routeOptimizationService.generateMultiStopRoute(stops);
+    return sendSuccess(res, 'Optimized multi-stop route generated successfully using A*', routePlan, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getProfile,
   updateProfile,
@@ -108,4 +128,5 @@ module.exports = {
   getLeaderboard,
   getMyRank,
   getAchievements,
+  optimizeMultiStopRoute,
 };

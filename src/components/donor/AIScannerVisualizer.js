@@ -11,9 +11,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 
-const DEFAULT_FOOD_IMG =
-  'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=800&auto=format&fit=crop';
-
 const scanSteps = [
   { id: 1, text: 'Scanning image composition...' },
   { id: 2, text: 'Identifying food category & dishes...' },
@@ -96,11 +93,18 @@ export const AIScannerVisualizer = ({ imageUri, onStartAnalysis, onAnalysisCompl
 
       {/* Image Container with Scan Overlay */}
       <View style={styles.imageFrame}>
-        <Image
-          source={{ uri: imageUri || DEFAULT_FOOD_IMG }}
-          style={styles.foodImage}
-          resizeMode="cover"
-        />
+        {imageUri ? (
+          <Image
+            source={{ uri: imageUri }}
+            style={styles.foodImage}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.foodImage, styles.emptyFrame]}>
+            <Ionicons name="camera-outline" size={48} color={colors.textMuted} />
+            <Text style={styles.emptyFrameText}>No food image selected</Text>
+          </View>
+        )}
 
         {isScanning && (
           <>
@@ -141,7 +145,8 @@ export const AIScannerVisualizer = ({ imageUri, onStartAnalysis, onAnalysisCompl
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={handleAnalyze}
-          style={styles.analyzeBtn}
+          disabled={!imageUri}
+          style={[styles.analyzeBtn, !imageUri && styles.disabledBtn]}
         >
           <Ionicons name="sparkles" size={18} color={colors.white} />
           <Text style={styles.analyzeBtnText}>Analyze with AI →</Text>
@@ -285,5 +290,20 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins',
     fontWeight: '800',
     color: colors.white,
+  },
+  disabledBtn: {
+    opacity: 0.45,
+    backgroundColor: '#94A3B8',
+  },
+  emptyFrame: {
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  emptyFrameText: {
+    fontSize: 13,
+    color: colors.textMuted,
+    fontWeight: '600',
   },
 });

@@ -208,9 +208,10 @@ export const NgoOnboardingScreen = ({ onComplete, onBackToRoleSelection }) => {
           <View style={styles.stepSection}>
             <Text style={styles.sectionHeading}>PRIMARY SERVICE LOCATION</Text>
             <LocationPickerMap
-              initialAddress="Koti Community Center, Hyderabad"
-              onLocationConfirm={(newAddr) => {
-                updateFormData({ ngoAddress: newAddr, ngoLocationConfirmed: true });
+              initialAddress={typeof formData.ngoAddress === 'string' ? formData.ngoAddress : (formData.ngoAddress?.address || 'Koti Community Center, Hyderabad')}
+              onLocationConfirm={(loc) => {
+                const addrStr = typeof loc === 'string' ? loc : (loc?.address || 'Koti Community Center, Hyderabad');
+                updateFormData({ ngoAddress: addrStr, ngoLocationConfirmed: true });
               }}
             />
 

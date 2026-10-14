@@ -3,9 +3,6 @@ import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 
-const DEFAULT_IMG =
-  'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?q=80&w=800&auto=format&fit=crop';
-
 export const DonationReviewCard = ({ donationData, onEditField }) => {
   const data = donationData || {
     foodName: 'Fresh Vegetable Biryani',
@@ -36,11 +33,17 @@ export const DonationReviewCard = ({ donationData, onEditField }) => {
 
       {/* Photo & Food Title */}
       <View style={styles.photoRow}>
-        <Image
-          source={{ uri: data.image || DEFAULT_IMG }}
-          style={styles.foodThumb}
-          resizeMode="cover"
-        />
+        {data.image ? (
+          <Image
+            source={{ uri: data.image }}
+            style={styles.foodThumb}
+            resizeMode="cover"
+          />
+        ) : (
+          <View style={[styles.foodThumb, styles.emptyThumb]}>
+            <Ionicons name="restaurant-outline" size={24} color={colors.primary} />
+          </View>
+        )}
 
         <View style={styles.titleCol}>
           <Text style={styles.foodName}>{data.foodName}</Text>
@@ -150,6 +153,11 @@ const styles = StyleSheet.create({
     marginRight: 14,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  emptyThumb: {
+    backgroundColor: 'rgba(75, 99, 85, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   titleCol: {
     flex: 1,

@@ -1,0 +1,47 @@
+{
+  "target_service": "Google Drive",
+  "target_folder": "MyDrive/FoodShareAI",
+  "colab_mount_point": "/content/drive/MyDrive/FoodShareAI",
+  "generated_at": "2026-10-11T13:48:00+05:30",
+  "required_uploads": [
+    {
+      "file_name": "food_detection_dataset.zip",
+      "local_path": "ml-service/colab_preparation/food_detection_dataset.zip",
+      "drive_destination": "FoodShareAI/food_detection_dataset.zip",
+      "size_bytes": 835369878,
+      "size_mb": 796.67,
+      "sha256": "C3B01ACE73F7598B0C594FC7F4BEAD7DE5BAA6D667A632A5E3D57C9E4917E94C",
+      "description": "Fine-Grained Open Images Food Detection Dataset (2,061 train, 589 val, 300 test images + labels across 30 classes)",
+      "required_for_step": "Cell 3 (Dataset Extraction)"
+    },
+    {
+      "file_name": "best_epoch5_checkpoint.pt",
+      "local_path": "ml-service/colab_preparation/best_epoch5_checkpoint.pt",
+      "drive_destination": "FoodShareAI/best_epoch5_checkpoint.pt",
+      "size_bytes": 24484327,
+      "size_mb": 23.35,
+      "sha256": "1DA8CD2C9CC6911108DA61456B5E5FC7D6BD84D1C79A24DC18E2321A602FAF6B",
+      "description": "Baseline YOLOv8n model checkpoint saved from Epoch 5 CPU training (mAP@50: 0.1991)",
+      "required_for_step": "Cell 4 (Checkpoint Compatibility) & Cell 5 (Training Starting Point)"
+    }
+  ],
+  "notebook_file": {
+    "file_name": "FoodShareAI_YOLOv8n_GPU_Training.ipynb",
+    "local_path": "ml-service/colab_preparation/FoodShareAI_YOLOv8n_GPU_Training.ipynb",
+    "description": "Ready-to-run Google Colab Notebook with preflight hardware detection, safe mounting, Drive sync, and 20-epoch fine-tuning plan",
+    "recommended_action": "Upload directly in Google Colab (https://colab.research.google.com -> Upload) or place in Drive FoodShareAI folder"
+  },
+  "upload_checklist": [
+    "1. Open Google Drive (https://drive.google.com).",
+    "2. In MyDrive, create a folder named 'FoodShareAI'.",
+    "3. Drag and drop 'food_detection_dataset.zip' into 'FoodShareAI'.",
+    "4. Drag and drop 'best_epoch5_checkpoint.pt' into 'FoodShareAI'.",
+    "5. Confirm both files appear in Google Drive before opening Colab."
+  ],
+  "strict_exclusions": [
+    "DO NOT upload any .env files or API keys.",
+    "DO NOT upload full backend/frontend source code repositories.",
+    "DO NOT upload node_modules, .venv, or virtual environments.",
+    "DO NOT upload or overwrite production checkpoint at ml-service/models/food_detection/best.pt."
+  ]
+}

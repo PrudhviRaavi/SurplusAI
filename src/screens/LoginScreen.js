@@ -16,6 +16,7 @@ import { LuxuryButton } from '../components/common/LuxuryButton';
 import { colors } from '../theme/colors';
 import { authApiService } from '../services/api/authApiService';
 import { useAppStore } from '../store/useAppStore';
+import { typography } from '../theme';
 
 export const LoginScreen = ({
   onSignIn,
@@ -51,6 +52,8 @@ export const LoginScreen = ({
         setActiveRole('NGO');
       } else if (userRole === 'VOLUNTEER') {
         setActiveRole('Volunteer');
+      } else if (userRole === 'ADMIN') {
+        setActiveRole('Admin');
       }
 
       setLoading(false);

@@ -11,7 +11,7 @@ export const ngoApiService = {
    */
   getProfile: async () => {
     const res = await apiClient.get('/ngo/profile');
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -20,7 +20,7 @@ export const ngoApiService = {
    */
   updateProfile: async (profileData) => {
     const res = await apiClient.put('/ngo/profile', profileData);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -34,7 +34,7 @@ export const ngoApiService = {
     const queryString = new URLSearchParams(cleanParams).toString();
     const endpoint = queryString ? `/ngo/donations?${queryString}` : '/ngo/donations';
     const res = await apiClient.get(endpoint);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -43,7 +43,7 @@ export const ngoApiService = {
    */
   getMatchDetails: async (donationId) => {
     const res = await apiClient.get(`/ngo/matches/${donationId}`);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -57,7 +57,7 @@ export const ngoApiService = {
     const queryString = new URLSearchParams(cleanParams).toString();
     const endpoint = queryString ? `/ngo/recommendations?${queryString}` : '/ngo/recommendations';
     const res = await apiClient.get(endpoint);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -67,7 +67,7 @@ export const ngoApiService = {
    */
   claimDonation: async (donationId, claimData = {}) => {
     const res = await apiClient.post(`/ngo/donations/${donationId}/claim`, claimData);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -81,7 +81,7 @@ export const ngoApiService = {
     const queryString = new URLSearchParams(cleanParams).toString();
     const endpoint = queryString ? `/ngo/claims?${queryString}` : '/ngo/claims';
     const res = await apiClient.get(endpoint);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -90,7 +90,7 @@ export const ngoApiService = {
    */
   getClaimById: async (claimId) => {
     const res = await apiClient.get(`/ngo/claims/${claimId}`);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -98,6 +98,6 @@ export const ngoApiService = {
    */
   getDashboard: async (ngoUserId) => {
     const res = await apiClient.get('/ngo/dashboard');
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 };

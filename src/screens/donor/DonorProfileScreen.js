@@ -18,8 +18,10 @@ export const DonorProfileScreen = ({ onLogout }) => {
 
   const userName = formData.fullName || formData.donorContactName || 'Prudhvi Raavi';
   const orgName = formData.donorOrgName || 'Royal Spice Palace';
-  const donorType = formData.donorType ? formData.donorType.toUpperCase() : 'RESTAURANT';
-  const address = formData.donorAddress || '124 Luxury Boulevard, Jubilee Hills, Hyderabad';
+  const rawAddress = formData.donorAddress;
+  const address = typeof rawAddress === 'string'
+    ? rawAddress
+    : (rawAddress?.address || '124 Luxury Boulevard, Jubilee Hills, Hyderabad');
 
   return (
     <SafeAreaView style={styles.safeArea}>

@@ -24,11 +24,15 @@ const getHealth = async (req, res) => {
 
   const isDatabaseConnected = dbState === 1;
   const isMlConnected = mlHealth && mlHealth.connected === true;
+  const isHealthy = isDatabaseConnected;
+  const statusCode = isHealthy ? 200 : 503;
 
-  return res.status(200).json({
-    success: true,
+  return res.status(statusCode).json({
+    success: isHealthy,
     service: 'foodshareai-backend',
-    message: 'FoodShareAI API is operational',
+    message: isHealthy
+      ? 'FoodShareAI API is operational'
+      : 'FoodShareAI API is degraded: database is disconnected',
     timestamp: new Date().toISOString(),
     status: {
       uptimeSeconds: Math.floor(process.uptime()),

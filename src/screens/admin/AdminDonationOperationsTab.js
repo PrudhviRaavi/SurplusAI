@@ -126,7 +126,7 @@ export const AdminDonationOperationsTab = () => {
               </Text>
             </View>
             <View style={styles.statusPill}>
-              <Text style={styles.statusText}>{item.status.replace(/_/g, ' ')}</Text>
+              <Text style={styles.statusText}>{(item.status || 'AVAILABLE').replace(/_/g, ' ')}</Text>
             </View>
           </View>
         ))}

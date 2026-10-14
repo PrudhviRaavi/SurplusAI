@@ -42,4 +42,4 @@ app.include_router(analysis_router)
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.py:app", host=ML_SERVICE_HOST, port=ML_SERVICE_PORT, reload=True)
+    uvicorn.run("app:app", host=ML_SERVICE_HOST, port=ML_SERVICE_PORT, reload=True)

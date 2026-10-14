@@ -1,0 +1,39 @@
+# FoodShareAI - Fine-Grained Open Images Food Detection Dataset (Colab GPU Package)
+# 30 Fine-Grained Classes mapped to 7 FoodShareAI Categories
+
+path: food_detection
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: Pizza
+  1: Hamburger
+  2: Sandwich
+  3: Hot dog
+  4: Pasta
+  5: Salad
+  6: Sushi
+  7: Taco
+  8: Apple
+  9: Banana
+  10: Orange (fruit)
+  11: Strawberry
+  12: Grape
+  13: Tomato
+  14: Carrot
+  15: Broccoli
+  16: Bread
+  17: Cake
+  18: Cookie
+  19: Croissant
+  20: Cheese
+  21: Milk
+  22: Ice cream
+  23: Coffee (drink)
+  24: Tea
+  25: Juice
+  26: Wine
+  27: Popcorn
+  28: Candy
+  29: Egg

@@ -21,23 +21,48 @@ export const SplashScreen = ({ onFinish }) => {
   // Master Fade Dissolve (2.6s - 3.0s)
   const screenOpacity = useRef(new Animated.Value(1)).current;
 
+  // Completion & Cleanup Safety Refs
+  const hasFinishedRef = useRef(false);
+  const animRef = useRef(null);
+  const isMountedRef = useRef(true);
+  const runIdRef = useRef(0);
+
   // Timeline Animation Drivers
   const glowOpacity = useRef(new Animated.Value(0)).current;
   const glowScale = useRef(new Animated.Value(0.7)).current;
-  
+
   const logoScale = useRef(new Animated.Value(0)).current;
   const logoRotate = useRef(new Animated.Value(-4)).current;
   const logoPulse = useRef(new Animated.Value(1)).current;
-  
+
   const titleOpacity = useRef(new Animated.Value(0)).current;
   const titleY = useRef(new Animated.Value(20)).current;
-  
+
   const subtitleOpacity = useRef(new Animated.Value(0)).current;
   const subtitleY = useRef(new Animated.Value(10)).current;
-  
+
   const particleProgress = useRef(new Animated.Value(0)).current;
 
+  const handleFinish = () => {
+    if (hasFinishedRef.current) return;
+    hasFinishedRef.current = true;
+    if (animRef.current) {
+      animRef.current.stop();
+    }
+    if (onFinish) {
+      onFinish();
+    }
+  };
+
   const startAnimation = () => {
+    hasFinishedRef.current = false;
+    runIdRef.current += 1;
+    const currentRunId = runIdRef.current;
+
+    if (animRef.current) {
+      animRef.current.stop();
+    }
+
     // Reset values
     screenOpacity.setValue(1);
     glowOpacity.setValue(0);
@@ -52,7 +77,7 @@ export const SplashScreen = ({ onFinish }) => {
     particleProgress.setValue(0);
 
     // Expanded Timeline Sequences (4.8s Total for Luxurious Cinematic Pace)
-    Animated.sequence([
+    const animSequence = Animated.sequence([
       // 0.0s – 0.6s: Soft blurred ambient entrance
       Animated.parallel([
         Animated.timing(glowOpacity, {
@@ -147,13 +172,33 @@ export const SplashScreen = ({ onFinish }) => {
         duration: 600,
         useNativeDriver,
       }),
-    ]).start(() => {
-      if (onFinish) onFinish();
+    ]);
+
+    animRef.current = animSequence;
+    animSequence.start(({ finished }) => {
+      console.log(
+        `[SplashScreen] animSequence callback fired (finished: ${finished}, currentRunId: ${currentRunId}, activeRunId: ${runIdRef.current}, isMounted: ${isMountedRef.current}, hasFinished: ${hasFinishedRef.current})`
+      );
+
+      // Guard against stopped/replayed prior generations and unmounted lifecycle
+      if (!isMountedRef.current) return;
+      if (currentRunId !== runIdRef.current) return;
+      if (hasFinishedRef.current) return;
+
+      handleFinish();
     });
   };
 
   useEffect(() => {
+    isMountedRef.current = true;
     startAnimation();
+    return () => {
+      isMountedRef.current = false;
+      runIdRef.current += 1;
+      if (animRef.current) {
+        animRef.current.stop();
+      }
+    };
   }, []);
 
   const combinedLogoScale = Animated.multiply(logoScale, logoPulse);
@@ -172,7 +217,11 @@ export const SplashScreen = ({ onFinish }) => {
   return (
     <Animated.View style={[styles.masterWrapper, { opacity: screenOpacity }]}>
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+        <StatusBar
+          barStyle="dark-content"
+          backgroundColor={colors.background}
+          translucent={false}
+        />
 
         {/* Ambient Particle Layer */}
         <FloatingDustParticles animValue={particleProgress} />
@@ -180,7 +229,7 @@ export const SplashScreen = ({ onFinish }) => {
         {/* Center Dedicated Splash Area */}
         <TouchableOpacity
           activeOpacity={0.95}
-          onPress={() => onFinish && onFinish()}
+          onPress={handleFinish}
           style={styles.container}
         >
           {/* Logo with Soft Glow */}

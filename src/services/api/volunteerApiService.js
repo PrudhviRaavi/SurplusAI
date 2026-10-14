@@ -12,7 +12,7 @@ export const volunteerApiService = {
    */
   getProfile: async () => {
     const res = await apiClient.get('/volunteer/profile');
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -21,7 +21,7 @@ export const volunteerApiService = {
    */
   updateProfile: async (profileData) => {
     const res = await apiClient.put('/volunteer/profile', profileData);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -29,7 +29,7 @@ export const volunteerApiService = {
    */
   getDashboard: async () => {
     const res = await apiClient.get('/volunteer/dashboard');
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -43,7 +43,7 @@ export const volunteerApiService = {
     const queryString = new URLSearchParams(cleanParams).toString();
     const endpoint = queryString ? `/volunteer/tasks?${queryString}` : '/volunteer/tasks';
     const res = await apiClient.get(endpoint);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -52,7 +52,7 @@ export const volunteerApiService = {
    */
   getTaskById: async (taskId) => {
     const res = await apiClient.get(`/volunteer/tasks/${taskId}`);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -61,7 +61,7 @@ export const volunteerApiService = {
    */
   acceptTask: async (taskId) => {
     const res = await apiClient.post(`/volunteer/tasks/${taskId}/accept`);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -75,7 +75,7 @@ export const volunteerApiService = {
     const queryString = new URLSearchParams(cleanParams).toString();
     const endpoint = queryString ? `/volunteer/deliveries?${queryString}` : '/volunteer/deliveries';
     const res = await apiClient.get(endpoint);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -84,7 +84,7 @@ export const volunteerApiService = {
    */
   getDeliveryById: async (deliveryId) => {
     const res = await apiClient.get(`/volunteer/deliveries/${deliveryId}`);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -94,7 +94,7 @@ export const volunteerApiService = {
    */
   updateDeliveryStatus: async (deliveryId, status) => {
     const res = await apiClient.put(`/volunteer/deliveries/${deliveryId}/status`, { status });
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -103,7 +103,7 @@ export const volunteerApiService = {
    */
   confirmPickup: async (deliveryId) => {
     const res = await apiClient.post(`/volunteer/deliveries/${deliveryId}/pickup`);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -113,7 +113,7 @@ export const volunteerApiService = {
    */
   submitProof: async (deliveryId, proofData = {}) => {
     const res = await apiClient.post(`/volunteer/deliveries/${deliveryId}/proof`, proofData);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -122,7 +122,7 @@ export const volunteerApiService = {
    */
   completeDelivery: async (deliveryId) => {
     const res = await apiClient.post(`/volunteer/deliveries/${deliveryId}/complete`);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -130,7 +130,7 @@ export const volunteerApiService = {
    */
   getImpact: async () => {
     const res = await apiClient.get('/volunteer/impact');
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -140,7 +140,7 @@ export const volunteerApiService = {
    */
   generateRoute: async (deliveryId, forceRecalculate = false) => {
     const res = await apiClient.post(`/deliveries/${deliveryId}/route`, { forceRecalculate });
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -149,7 +149,7 @@ export const volunteerApiService = {
    */
   getRoute: async (deliveryId) => {
     const res = await apiClient.get(`/deliveries/${deliveryId}/route`);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
   },
 
   /**
@@ -158,6 +158,20 @@ export const volunteerApiService = {
    */
   getLocation: async (deliveryId) => {
     const res = await apiClient.get(`/deliveries/${deliveryId}/location`);
-    return res.data;
+    return res?.data !== undefined ? res.data : res;
+  },
+
+  /**
+   * Optimize multi-stop route via A* routing backend
+   * @param {Array<{ name: string, coordinates: [number, number], address?: string }>} stops
+   */
+  optimizeMultiStopRoute: async (stops) => {
+    try {
+      const res = await apiClient.post('/volunteer/route/optimize', { stops });
+      return res?.data !== undefined ? res.data : res;
+    } catch (err) {
+      console.warn('[volunteerApiService] optimizeMultiStopRoute failed, fallback enabled:', err?.message);
+      return null;
+    }
   },
 };

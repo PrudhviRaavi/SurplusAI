@@ -1,0 +1,48 @@
+{
+  "archive_name": "food_detection_dataset.zip",
+  "archive_path": "c:\\Users\\raavi\\OneDrive\\Desktop\\SurplusAI\\ml-service\\colab_preparation\\food_detection_dataset.zip",
+  "size_bytes": 835369878,
+  "size_mb": 796.67,
+  "sha256": "C3B01ACE73F7598B0C594FC7F4BEAD7DE5BAA6D667A632A5E3D57C9E4917E94C",
+  "counts": {
+    "train_img": 2061,
+    "val_img": 589,
+    "test_img": 300,
+    "train_lbl": 2061,
+    "val_lbl": 589,
+    "test_lbl": 300
+  },
+  "checkpoint_copy": {
+    "name": "best_epoch5_checkpoint.pt",
+    "path": "c:\\Users\\raavi\\OneDrive\\Desktop\\SurplusAI\\ml-service\\colab_preparation\\best_epoch5_checkpoint.pt",
+    "size_bytes": 24484327,
+    "size_mb": 23.35,
+    "sha256": "1DA8CD2C9CC6911108DA61456B5E5FC7D6BD84D1C79A24DC18E2321A602FAF6B"
+  },
+  "inventory": {
+    "food_detection_dataset.zip": {
+      "size_bytes": 835369878,
+      "sha256": "C3B01ACE73F7598B0C594FC7F4BEAD7DE5BAA6D667A632A5E3D57C9E4917E94C"
+    },
+    "best_epoch5_checkpoint.pt": {
+      "size_bytes": 24484327,
+      "sha256": "1DA8CD2C9CC6911108DA61456B5E5FC7D6BD84D1C79A24DC18E2321A602FAF6B"
+    },
+    "FoodShareAI_YOLOv8n_GPU_Training.ipynb": {
+      "size_bytes": 56339,
+      "sha256": "12C247BB5A32D05597DCFB6BFAB105DE8EC4CE4D139DFEC0E8DED625A7EAD77C"
+    },
+    "food_detection_colab.yaml": {
+      "size_bytes": 660,
+      "sha256": "2CE2F5C7D3392B16538BAD50B8F99B598B8B3531514C670D28CB6D85A68176F1"
+    },
+    "google_drive_upload_manifest.json": {
+      "size_bytes": 2456,
+      "sha256": "A75077839DD1A043E859F65B407848BEFF57957F7F7F8B2C7BEBF8F90FD2F3BC"
+    },
+    "README.md": {
+      "size_bytes": 5992,
+      "sha256": "B3459FE51381D1C06C5FFD57E51EFBD082F68E402348AD3108B0F903B8F64992"
+    }
+  }
+}

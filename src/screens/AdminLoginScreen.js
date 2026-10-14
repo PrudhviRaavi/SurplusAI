@@ -14,6 +14,7 @@ import { LuxuryButton } from '../components/common/LuxuryButton';
 import { colors } from '../theme/colors';
 import { authApiService } from '../services/api/authApiService';
 import { useAppStore } from '../store/useAppStore';
+import { typography } from '../theme';
 
 export const AdminLoginScreen = ({ onAdminLogin, onBackToLogin }) => {
   const [adminEmail, setAdminEmail] = useState('admin@example.com');

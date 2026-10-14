@@ -1,113 +1,270 @@
+import { ML_BASE_URL } from '../api/apiConfig';
 import { donorApiService } from '../api/donorApiService';
+import { freshnessEstimator } from './freshnessEstimator';
+
+export const VALID_APP_CATEGORIES = [
+  'COOKED_MEALS',
+  'FRUITS_VEGETABLES',
+  'BAKERY',
+  'PACKAGED_FOOD',
+  'DAIRY',
+  'BEVERAGES',
+  'OTHER',
+];
+
+export const APP_CATEGORY_LABELS = {
+  COOKED_MEALS: 'Cooked Meals',
+  FRUITS_VEGETABLES: 'Fruits & Vegetables',
+  BAKERY: 'Bakery Items',
+  PACKAGED_FOOD: 'Packaged Food',
+  DAIRY: 'Dairy Products',
+  BEVERAGES: 'Beverages',
+  OTHER: 'Other Food Items',
+};
+
+/**
+ * Converts a remote, local file, or blob URI to a base64 Data URI if needed.
+ */
+const ensureDataUri = async (uri, metadata = {}) => {
+  if (metadata?.base64) {
+    return metadata.base64.startsWith('data:')
+      ? metadata.base64
+      : `data:image/jpeg;base64,${metadata.base64}`;
+  }
+  if (!uri) return null;
+  if (uri.startsWith('data:image/')) return uri;
+
+  // Local file / content URI handling (e.g. Android file:/// or content://)
+  if (uri.startsWith('file:') || uri.startsWith('content:')) {
+    try {
+      let FileSystem;
+      try {
+        FileSystem = require('expo-file-system');
+      } catch (_) {}
+
+      if (FileSystem && FileSystem.readAsStringAsync) {
+        const base64 = await FileSystem.readAsStringAsync(uri, {
+          encoding: FileSystem.EncodingType?.Base64 || 'base64',
+        });
+        if (base64) {
+          return `data:image/jpeg;base64,${base64}`;
+        }
+      }
+    } catch (fsErr) {
+      console.warn('[aiService] expo-file-system local file read error:', fsErr.message);
+    }
+  }
+
+  if (
+    uri.startsWith('http://') ||
+    uri.startsWith('https://') ||
+    uri.startsWith('blob:') ||
+    uri.startsWith('file:') ||
+    uri.startsWith('content:')
+  ) {
+    try {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      return await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (err) {
+      console.warn('[aiService] Could not convert URI to data URI:', err.message);
+      return uri;
+    }
+  }
+
+  // Likely a raw base64 string
+  return `data:image/jpeg;base64,${uri}`;
+};
 
 /**
  * Public AI Service Interface
- * Connected directly to the real FoodShareAI backend and Python ML microservice.
- * Respects honest model loading status - does NOT invent fake predictions.
+ * Connected directly to the candidate FastAPI ML service (port 8002) with backend gateway fallback.
+ * Strictly honest: Never fabricates freshness, quantity, or expiry scores when models are unavailable.
  */
 export const aiService = {
   analyzeFoodImage: async (imageUri, metadata = {}) => {
     try {
-      if (!imageUri) {
+      if (!imageUri && !metadata?.base64) {
         return {
           success: false,
-          error: 'Please upload a clear image of the food.',
+          error: 'Please upload or select a clear food image.',
         };
       }
 
-      // Call the real backend /api/ai/analyze endpoint
-      const response = await donorApiService.analyzeImage({
-        imageUri,
-        foodCategory: metadata.foodCategory || 'OTHER',
-        preparationTime: metadata.preparationTime || null,
-        quantity: metadata.quantity || null,
-      });
+      const imageData = await ensureDataUri(imageUri, metadata);
+      let rawResult = null;
 
-      if (!response) {
+      // 1. First attempt direct connection to candidate ML microservice (configured via ML_BASE_URL)
+      if (!ML_BASE_URL.includes('__UNCONFIGURED_ANDROID_LAN_HOST__')) {
+        try {
+          const mlResponse = await fetch(`${ML_BASE_URL}/api/ml/analyze/json`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+              imageData,
+              foodCategory: metadata.foodCategory || 'OTHER',
+              preparationTime: metadata.preparationTime || null,
+              estimatedQuantity: metadata.quantity ? Number(metadata.quantity) : null,
+            }),
+          });
+
+          if (mlResponse.ok) {
+            rawResult = await mlResponse.json();
+          }
+        } catch (directErr) {
+          console.info('[aiService] Direct ML endpoint query failed or offline, trying backend gateway:', directErr.message);
+        }
+      } else {
+        console.warn('[aiService] Direct ML endpoint skipped: Missing LAN IP configuration for physical Android.');
+      }
+
+      // 2. Fallback to Express backend gateway (/api/ai/analyze) if direct ML connection did not succeed
+      if (!rawResult) {
+        try {
+          const backendResponse = await donorApiService.analyzeImage({
+            imageUri: imageData || imageUri,
+            foodCategory: metadata.foodCategory || 'OTHER',
+            preparationTime: metadata.preparationTime || null,
+            quantity: metadata.quantity || null,
+          });
+          if (backendResponse && backendResponse.success) {
+            rawResult = backendResponse.raw || backendResponse;
+          }
+        } catch (backendErr) {
+          console.warn('[aiService] Backend gateway also unavailable:', backendErr.message);
+        }
+      }
+
+      if (!rawResult) {
         return {
           success: false,
-          error: 'No response received from FoodShareAI server.',
+          error: `Could not reach the AI ML service at ${ML_BASE_URL}. Ensure the service is running.`,
         };
       }
 
-      // If microservice is not reachable or reported unhandled error
-      if (response.connected === false || response.status === 'UNREACHABLE') {
-        return {
-          success: false,
-          error: 'AI vision models are currently offline. You can proceed with manual entry.',
-        };
-      }
+      // Check model loaded state
+      const foodDetection = rawResult.foodDetection || {};
+      const isDetectionLoaded = foodDetection.status === 'LOADED';
 
-      // If models are not loaded (weights missing in ML microservice)
-      if (response.status === 'MODEL_NOT_LOADED') {
+      if (!isDetectionLoaded) {
         return {
           success: true,
           modelLoaded: false,
-          detectedFood: 'Unclassified Food Item',
+          detectedFood: 'Model not loaded',
           detectedItems: [],
+          detections: [],
           confidence: 'N/A',
-          confidenceScore: 0,
-          category: metadata.foodCategory || 'Cooked meals',
+          confidenceScore: null,
+          category: metadata.foodCategory || 'OTHER',
+          categoryLabel: APP_CATEGORY_LABELS[metadata.foodCategory] || 'Other Food Items',
+          isLowConfidence: false,
           freshnessLabel: 'Inspection Required',
-          freshnessScore: 0,
+          freshnessScore: null,
           estimatedQuantity: 'Manual review required',
-          estimatedQuantityNum: 1,
-          quantityUnit: 'servings',
-          quantityConfidence: '0%',
+          estimatedQuantityNum: null,
+          quantityConfidence: null,
           estimatedConsumptionWindow: 'Inspect before consumption',
-          prepTimeEstimate: 'Pending review',
-          bestBeforeEstimate: 'Pending review',
-          storageRecommendation: 'Inspect packaging and storage',
-          disclaimer: 'Custom ML models are in training. Please verify all food attributes manually before donating.',
+          disclaimer: 'Candidate model is not loaded in memory.',
         };
       }
 
-      // When real trained models are loaded and returned predictions:
-      const detections = response.foodDetection || [];
-      const primaryDetection = detections.length > 0 ? detections[0] : null;
-      const detectedFood = primaryDetection ? primaryDetection.itemName : 'Surplus Food';
-      const detectedItems = detections.map((d) => d.itemName);
+      // Parse real detections from YOLOv8 candidate
+      const rawDetections = foodDetection.detections || [];
+      const normalizedDetections = rawDetections.map((d) => {
+        const cat = d.category && VALID_APP_CATEGORIES.includes(d.category) ? d.category : 'OTHER';
+        return {
+          className: d.className,
+          itemName: d.itemName || d.className,
+          category: cat,
+          categoryLabel: APP_CATEGORY_LABELS[cat] || 'Other Food Items',
+          confidence: d.confidence,
+          confidencePercent: `${Math.round(d.confidence * 100)}%`,
+          isLowConfidence: d.confidence < 0.50,
+          boundingBox: d.boundingBox,
+        };
+      });
 
-      const freshness = response.freshnessPrediction || {};
-      const freshnessLabel = freshness.label || 'Good';
-      const freshnessScore = Math.round((freshness.confidence || 0.8) * 100);
+      const hasDetections = normalizedDetections.length > 0;
+      const primary = hasDetections ? normalizedDetections[0] : null;
 
-      const quantity = response.quantityEstimation || {};
-      const estimatedQtyNum = quantity.value || 1;
-      const quantityUnit = quantity.unit ? quantity.unit.toLowerCase() : 'kg';
+      const detectedFood = primary ? primary.itemName : 'No Food Detected';
+      const category = primary ? primary.category : (metadata.foodCategory || 'OTHER');
+      const categoryLabel = APP_CATEGORY_LABELS[category] || 'Other Food Items';
+      const confidenceScore = primary ? primary.confidence : null;
+      const confidence = primary ? primary.confidencePercent : '0%';
+      const isLowConfidence = primary ? primary.isLowConfidence : true;
 
-      const expiry = response.expiryPrediction || {};
-      const safeHours = expiry.estimatedSafeHours || 6;
-      const consumptionWindow = `${Math.max(1, Math.round(safeHours * 0.8))}–${Math.round(safeHours * 1.2)} hours`;
+      // Auxiliary models: HONEST values only (no fake percentages or hours)
+      const rawFreshness = rawResult.freshnessPrediction || {};
+      const isFreshnessModelLoaded = rawFreshness.status === 'LOADED' && rawFreshness.confidence != null;
 
-      const overallConf = Math.round((response.confidence?.overall || 0.85) * 100);
+      // Transparent Freshness Evaluation
+      const freshnessEval = freshnessEstimator.estimateFreshness({
+        foodCategory: category,
+        preparationTime: metadata.preparationTime,
+        storageCondition: metadata.storageCondition,
+        trainedModelResult: rawFreshness,
+      });
+
+      const freshnessLabel = freshnessEval.label;
+      const freshnessScore = freshnessEval.score;
+      const freshnessSource = freshnessEval.source;
+      const freshnessBadge = freshnessEval.sourceBadge;
+      const freshnessFactors = freshnessEval.factors;
+      const freshnessExplanation = freshnessEval.explanation;
+
+      const quantity = rawResult.quantityEstimation || {};
+      const isQuantityLoaded = quantity.status === 'LOADED' && quantity.estimatedQuantity != null;
+      const estimatedQuantityNum = isQuantityLoaded ? quantity.estimatedQuantity : null;
+      const estimatedQuantity = isQuantityLoaded ? `${estimatedQuantityNum} ${quantity.unit || 'kg'}` : 'Manual entry required';
+
+      const expiry = rawResult.expiryPrediction || {};
+      const isExpiryLoaded = expiry.status === 'LOADED' && expiry.safeConsumptionHours != null;
+      const consumptionWindow = isExpiryLoaded
+        ? `${expiry.safeConsumptionHours} hours`
+        : (freshnessEval.safeWindowText || 'Inspect before consumption');
 
       return {
         success: true,
         modelLoaded: true,
+        hasDetections,
         detectedFood,
-        detectedItems: detectedItems.length > 0 ? detectedItems : [detectedFood],
-        confidence: `${overallConf}%`,
-        confidenceScore: overallConf,
-        category: metadata.foodCategory || 'Cooked meals',
-        freshnessLabel: freshnessLabel.charAt(0).toUpperCase() + freshnessLabel.slice(1).toLowerCase(),
+        detectedItems: normalizedDetections.map((d) => d.itemName),
+        detections: normalizedDetections,
+        primaryDetection: primary,
+        category,
+        categoryLabel,
+        confidence,
+        confidenceScore,
+        isLowConfidence,
+        freshnessLabel,
         freshnessScore,
-        estimatedQuantity: `${estimatedQtyNum}`,
-        estimatedQuantityNum: estimatedQtyNum,
-        quantityUnit,
-        quantityConfidence: `${Math.round((quantity.confidence || 0.8) * 100)}%`,
+        freshnessSource,
+        freshnessBadge,
+        freshnessFactors,
+        freshnessExplanation,
+        isFreshnessLoaded: isFreshnessModelLoaded,
+        estimatedQuantity,
+        estimatedQuantityNum,
+        isQuantityLoaded,
         estimatedConsumptionWindow: consumptionWindow,
-        prepTimeEstimate: 'Today',
-        bestBeforeEstimate: `${safeHours} hours remaining`,
-        storageRecommendation: 'Covered / Refrigerated',
-        disclaimer: expiry.disclaimer || 'ML estimation. Always verify aroma, appearance, and food safety before donation.',
+        isExpiryLoaded,
+        disclaimer: expiry.disclaimer || freshnessEval.disclaimer || 'Always verify food aroma, texture, and appearance before donation.',
+        processingTimeMs: rawResult.processingTimeMs || null,
       };
     } catch (err) {
       console.warn('[aiService error]', err.message);
-      // If server or network fails, provide graceful message to allow manual entry
       return {
         success: false,
-        error: 'AI analysis service is currently unavailable. Please enter details manually.',
+        error: `AI analysis failed: ${err.message}`,
       };
     }
   },

@@ -1,4 +1,7 @@
 import React, { useEffect } from 'react';
+import { SplashScreen } from '../screens/SplashScreen';
+import { OnboardingScreen } from '../screens/OnboardingScreen';
+import { LandingScreen } from '../screens/LandingScreen';
 import { View, StyleSheet, SafeAreaView } from 'react-native';
 import { authApiService } from '../services/api/authApiService';
 import { tokenStorage } from '../services/api/tokenStorage';
@@ -6,6 +9,22 @@ import { ScreenBarSwitcher } from '../components/navigation/ScreenBarSwitcher';
 import { useNavigationStore } from '../store/useNavigationStore';
 import { useAppStore } from '../store/useAppStore';
 import { colors } from '../theme/colors';
+import { CreateAccountScreen } from '../screens/CreateAccountScreen';
+import { VerifyOtpScreen } from '../screens/VerifyOtpScreen';
+import { RoleSelectionScreen } from '../screens/RoleSelectionScreen';
+import { DonorOnboardingScreen } from '../screens/DonorOnboardingScreen';
+import { NgoOnboardingScreen } from '../screens/NgoOnboardingScreen';
+import { VolunteerOnboardingScreen } from '../screens/VolunteerOnboardingScreen';
+import { AccountSuccessScreen } from '../screens/AccountSuccessScreen';
+
+import { DonorDashboardScreen } from '../screens/donor/DonorDashboardScreen';
+import { NgoDashboardScreen } from '../screens/ngo/NgoDashboardScreen';
+import { VolunteerDashboardScreen } from '../screens/volunteer/VolunteerDashboardScreen';
+
+import { LoginScreen } from '../screens/LoginScreen';
+import { AdminLoginScreen } from '../screens/AdminLoginScreen';
+import { AdminDashboardScreen } from '../screens/AdminDashboardScreen';
+import { ForgotPasswordFlow } from '../screens/ForgotPasswordFlow';
 
 export const AppNavigator = () => {
   const { currentScreen, setCurrentScreen, selectedRole, setSelectedRole } =
@@ -83,7 +102,15 @@ export const AppNavigator = () => {
   const renderActiveScreen = () => {
     switch (currentScreen) {
       case 'splash':
-        return <SplashScreen onFinish={() => setCurrentScreen('onboarding1')} />;
+        console.log('[AppNavigator] Rendering SplashScreen (currentScreen:', currentScreen, ')');
+        return (
+          <SplashScreen
+            onFinish={() => {
+              console.log('[AppNavigator] SplashScreen onFinish triggered, calling setCurrentScreen("onboarding1")');
+              setCurrentScreen('onboarding1');
+            }}
+          />
+        );
 
       case 'onboarding1':
         return (
@@ -198,12 +225,25 @@ export const AppNavigator = () => {
       case 'login':
         return (
           <LoginScreen
-            onSignIn={() => {
-              if (activeRole === 'NGO' || selectedRole === 'ngo') {
+            onSignIn={(userRole) => {
+              // Route using the role returned by the server (passed from LoginScreen.handleLogin).
+              // Do NOT read activeRole/selectedRole from closure – those are render-time stale values.
+              const role = (userRole || '').toUpperCase();
+              if (role === 'NGO') {
+                setActiveRole('NGO');
+                setSelectedRole('ngo');
                 setCurrentScreen('ngoDashboard');
-              } else if (activeRole === 'Volunteer' || selectedRole === 'volunteer') {
+              } else if (role === 'VOLUNTEER') {
+                setActiveRole('Volunteer');
+                setSelectedRole('volunteer');
                 setCurrentScreen('volunteerDashboard');
+              } else if (role === 'ADMIN') {
+                setActiveRole('Admin');
+                setCurrentScreen('adminDashboard');
               } else {
+                // DONOR or any unrecognized role
+                setActiveRole('Donor');
+                setSelectedRole('donor');
                 setCurrentScreen('donorDashboard');
               }
             }}
@@ -252,16 +292,20 @@ export const AppNavigator = () => {
   };
 
   return (
-    <SafeAreaView style={styles.mainShell}>
-      {/* Top Preview Switcher Bar for 1-Tap Architecture Testing */}
-      <ScreenBarSwitcher
-        activeScreen={currentScreen}
-        onSelectScreen={(screenId) => setCurrentScreen(screenId)}
-      />
+    <View style={styles.mainShell}>
+      {/* Top Preview Switcher Bar for Architecture Testing — DEV only, hidden on splash */}
+      {typeof __DEV__ !== 'undefined' && __DEV__ && currentScreen !== 'splash' && (
+        <SafeAreaView style={styles.devBarSafeArea}>
+          <ScreenBarSwitcher
+            activeScreen={currentScreen}
+            onSelectScreen={(screenId) => setCurrentScreen(screenId)}
+          />
+        </SafeAreaView>
+      )}
 
       {/* Active Screen Container */}
       <View style={styles.screenCanvas}>{renderActiveScreen()}</View>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -269,6 +313,9 @@ const styles = StyleSheet.create({
   mainShell: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  devBarSafeArea: {
+    backgroundColor: '#2A3B31',
   },
   screenCanvas: {
     flex: 1,

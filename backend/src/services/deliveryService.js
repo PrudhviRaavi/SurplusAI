@@ -23,6 +23,7 @@ const deliveryStatusService = require('./deliveryStatusService');
 const matchingService = require('./matchingService');
 const impactService = require('./impactService');
 const gamificationService = require('./gamificationService');
+const { broadcastTaskUpdated, broadcastDonationUpdated } = require('../socket');
 
 /**
  * Validate MongoDB ObjectId
@@ -140,8 +141,7 @@ const getAvailableDeliveryTasks = async (query = {}, volunteerUserId) => {
     };
   }
 
-  const total = await Delivery.countDocuments(filter);
-  const totalPages = Math.ceil(total / limit) || 1;
+  const deliveriesCount = await Delivery.countDocuments(filter);
 
   const deliveries = await Delivery.find(filter)
     .populate({
@@ -219,8 +219,90 @@ const getAvailableDeliveryTasks = async (query = {}, volunteerUserId) => {
     })
   );
 
+  // Also query active published donations open for volunteer pickup
+  const activeDeliveryDonationIds = await Delivery.distinct('donationId');
+  const donationFilter = {
+    status: DONATION_STATUS.PUBLISHED,
+    _id: { $nin: activeDeliveryDonationIds },
+    expiryTime: { $gt: new Date() },
+  };
+
+  if (userLng !== null && userLat !== null && !isNaN(userLng) && !isNaN(userLat)) {
+    const EARTH_RADIUS_KM = 6378.1;
+    donationFilter.location = {
+      $geoWithin: {
+        $centerSphere: [[userLng, userLat], radiusKm / EARTH_RADIUS_KM],
+      },
+    };
+  }
+
+  const openDonationsCount = await Donation.countDocuments(donationFilter);
+  const openDonations = await Donation.find(donationFilter)
+    .populate('donorId', 'fullName phone')
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean();
+
+  const formattedDonationTasks = await Promise.all(
+    openDonations.map(async (d) => {
+      let donorOrgName = d.donorId?.fullName || 'Verified Food Donor';
+      let donorAddress = 'Jubilee Hills, Hyderabad';
+      const donorProf = await DonorProfile.findOne({ userId: d.donorId?._id }).lean();
+      if (donorProf) {
+        donorOrgName = donorProf.organizationName || donorOrgName;
+        donorAddress = donorProf.address?.street || donorAddress;
+      }
+
+      let distanceKm = 2.0;
+      if (userLng !== null && userLat !== null && d.location?.coordinates) {
+        distanceKm = matchingService.calculateDistanceKm(
+          [userLng, userLat],
+          d.location.coordinates
+        );
+      }
+
+      return {
+        id: d._id.toString(),
+        _id: d._id.toString(),
+        donationId: d._id.toString(),
+        foodName: d.title,
+        foodCategory: d.foodCategory || 'COOKED_MEALS',
+        quantity: `${d.quantity} ${d.quantityUnit?.toLowerCase() || 'meals'}`,
+        quantityNum: d.quantity,
+        estimatedMeals: d.estimatedMeals || 25,
+        foodImage: d.foodImage || '',
+        freshnessStatus: d.freshnessStatus || 'GOOD',
+        pickupLocation: d.location,
+        deliveryLocation: null,
+        pickupWindow: d.pickupStartTime
+          ? `${new Date(d.pickupStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${new Date(d.pickupEndTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+          : '6:00 PM – 8:00 PM',
+        expiryTime: d.expiryTime,
+        status: DELIVERY_STATUS.AVAILABLE,
+        routeDistanceKm: Math.round(distanceKm * 10) / 10 || 2.4,
+        estimatedDurationMins: Math.max(10, Math.round((distanceKm / 25) * 60)),
+        distanceToPickupKm: distanceKm,
+        isDirectDonationPickup: true,
+        donor: {
+          organizationName: donorOrgName,
+          address: donorAddress,
+          phone: d.donorId?.phone || '',
+        },
+        ngo: {
+          organizationName: 'Open Community Dispatch',
+          address: 'Local Food Rescue Hub',
+          phone: '',
+        },
+      };
+    })
+  );
+
+  const total = deliveriesCount + openDonationsCount;
+  const totalPages = Math.ceil(total / limit) || 1;
+  const allTasks = [...formattedTasks, ...formattedDonationTasks].slice(0, limit);
+
   return {
-    tasks: formattedTasks,
+    tasks: allTasks,
     pagination: {
       total,
       page,
@@ -248,9 +330,57 @@ const getDeliveryTaskById = async (taskId, volunteerUserId) => {
     .lean();
 
   if (!delivery) {
-    const err = new Error('Delivery task not found');
-    err.statusCode = 404;
-    throw err;
+    // Check if it's an open published Donation
+    const donation = await Donation.findById(taskId)
+      .populate('donorId', 'fullName phone')
+      .lean();
+
+    if (!donation) {
+      const err = new Error('Delivery task not found');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    let donorOrgName = donation.donorId?.fullName || 'Verified Food Donor';
+    let donorAddress = 'Jubilee Hills, Hyderabad';
+    const donorProf = await DonorProfile.findOne({ userId: donation.donorId?._id }).lean();
+    if (donorProf) {
+      donorOrgName = donorProf.organizationName || donorOrgName;
+      donorAddress = donorProf.address?.street || donorAddress;
+    }
+
+    return {
+      id: donation._id.toString(),
+      _id: donation._id.toString(),
+      donationId: donation._id.toString(),
+      foodName: donation.title,
+      foodCategory: donation.foodCategory || 'COOKED_MEALS',
+      quantity: `${donation.quantity} ${donation.quantityUnit?.toLowerCase() || 'meals'}`,
+      quantityNum: donation.quantity,
+      estimatedMeals: donation.estimatedMeals || 25,
+      foodImage: donation.foodImage || '',
+      freshnessStatus: donation.freshnessStatus || 'GOOD',
+      pickupLocation: donation.location,
+      deliveryLocation: null,
+      pickupWindow: donation.pickupStartTime
+        ? `${new Date(donation.pickupStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – ${new Date(donation.pickupEndTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+        : '6:00 PM – 8:00 PM',
+      expiryTime: donation.expiryTime,
+      status: DELIVERY_STATUS.AVAILABLE,
+      routeDistanceKm: 2.5,
+      estimatedDurationMins: 15,
+      volunteerId: null,
+      donor: {
+        organizationName: donorOrgName,
+        address: donorAddress,
+        phone: donation.donorId?.phone || '',
+      },
+      ngo: {
+        organizationName: 'Open Community Dispatch',
+        address: 'Local Food Rescue Hub',
+        phone: '',
+      },
+    };
   }
 
   // Format donor and NGO operational details
@@ -345,6 +475,43 @@ const acceptDeliveryTask = async (taskId, volunteerUserId) => {
   if (!acceptedDelivery) {
     const existing = await Delivery.findById(taskId);
     if (!existing) {
+      // Check if taskId is an open published donation
+      const donation = await Donation.findById(taskId);
+      if (donation && donation.status === DONATION_STATUS.PUBLISHED) {
+        // Find recipient NGO
+        let ngoUser = await User.findOne({ role: 'NGO' });
+        const ngoId = ngoUser?._id || user._id;
+
+        const newDelivery = await Delivery.create({
+          donationId: donation._id,
+          claimId: donation._id, // Referenced
+          donorId: donation.donorId,
+          ngoId: ngoId,
+          volunteerId: volunteerUserId,
+          pickupLocation: donation.location,
+          deliveryLocation: donation.location,
+          routeDistance: 2500,
+          estimatedDuration: 15,
+          status: DELIVERY_STATUS.ACCEPTED,
+        });
+
+        donation.status = DONATION_STATUS.CLAIMED;
+        await donation.save();
+
+        try {
+          broadcastDonationUpdated(donation);
+          broadcastTaskUpdated(newDelivery);
+        } catch (_) {}
+
+        return {
+          id: newDelivery._id.toString(),
+          _id: newDelivery._id.toString(),
+          volunteerId: volunteerUserId,
+          status: newDelivery.status,
+          updatedAt: newDelivery.updatedAt,
+        };
+      }
+
       const err = new Error('Delivery task not found');
       err.statusCode = 404;
       throw err;
@@ -354,6 +521,10 @@ const acceptDeliveryTask = async (taskId, volunteerUserId) => {
     err.statusCode = 409;
     throw err;
   }
+
+  try {
+    broadcastTaskUpdated(acceptedDelivery);
+  } catch (_) {}
 
   return {
     id: acceptedDelivery._id.toString(),

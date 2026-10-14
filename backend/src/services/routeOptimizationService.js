@@ -173,8 +173,75 @@ const generateRoute = (pickupCoordinates, dropoffCoordinates) => {
   };
 };
 
+/**
+ * Generates an optimized multi-stop route connecting consecutive stops using A*
+ * @param {Array<{ name: string, coordinates: [number, number], address?: string }>} stops
+ * @returns {object} Multi-stop route details
+ */
+const generateMultiStopRoute = (stops) => {
+  if (!Array.isArray(stops) || stops.length < 2) {
+    throw new Error('At least two stops with valid [lng, lat] coordinates are required');
+  }
+
+  for (let i = 0; i < stops.length; i++) {
+    const coords = stops[i]?.coordinates;
+    if (!Array.isArray(coords) || coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) {
+      throw new Error(`Stop ${i + 1} (${stops[i]?.name || 'Unknown'}) is missing valid coordinates`);
+    }
+  }
+
+  const legs = [];
+  let totalDistanceKm = 0;
+  let totalEstimatedDurationMinutes = 0;
+  const allCoordinates = [];
+
+  for (let i = 0; i < stops.length - 1; i++) {
+    const from = stops[i];
+    const to = stops[i + 1];
+    const leg = generateRoute(from.coordinates, to.coordinates);
+    legs.push({
+      fromStopIndex: i,
+      toStopIndex: i + 1,
+      fromName: from.name,
+      toName: to.name,
+      distanceKm: leg.distanceKm,
+      estimatedDurationMinutes: leg.estimatedDurationMinutes,
+      coordinates: leg.route.coordinates,
+    });
+    totalDistanceKm += leg.distanceKm;
+    totalEstimatedDurationMinutes += leg.estimatedDurationMinutes;
+    if (allCoordinates.length > 0) {
+      allCoordinates.push(...leg.route.coordinates.slice(1));
+    } else {
+      allCoordinates.push(...leg.route.coordinates);
+    }
+  }
+
+  return {
+    algorithm: 'A*',
+    routeSource: 'OpenStreetMap Graph',
+    isOptimized: true,
+    distanceKm: Math.round(totalDistanceKm * 10) / 10,
+    estimatedDurationMinutes: totalEstimatedDurationMinutes,
+    route: {
+      type: 'LineString',
+      coordinates: allCoordinates,
+    },
+    stops: stops.map((s, idx) => ({
+      index: idx,
+      name: s.name,
+      address: s.address || '',
+      coordinates: s.coordinates,
+      type: idx === 0 ? 'start' : idx === 1 ? 'stop1' : 'stop2',
+    })),
+    legs,
+    generatedAt: new Date(),
+  };
+};
+
 module.exports = {
   findShortestPathAStar,
   buildRouteGeometry,
   generateRoute,
+  generateMultiStopRoute,
 };

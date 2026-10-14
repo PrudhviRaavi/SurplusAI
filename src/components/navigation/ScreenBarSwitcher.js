@@ -25,38 +25,50 @@ const SCREEN_LIST = [
 ];
 
 export const ScreenBarSwitcher = ({ activeScreen, onSelectScreen }) => {
+  const [isCollapsed, setIsCollapsed] = React.useState(false);
+
   return (
     <View style={styles.container}>
-      <Text style={styles.headerLabel}>FOODSHARE AI – ARCHITECTURE PREVIEW SWITCHER</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContainer}
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => setIsCollapsed(!isCollapsed)}
+        style={styles.headerLabelRow}
       >
-        {SCREEN_LIST.map((item) => {
-          const isActive = activeScreen === item.id;
-          return (
-            <TouchableOpacity
-              key={item.id}
-              activeOpacity={0.8}
-              onPress={() => onSelectScreen(item.id)}
-              style={[
-                styles.pill,
-                isActive && styles.activePill,
-              ]}
-            >
-              <Text
+        <Text style={styles.headerLabel}>FOODSHARE AI – ARCHITECTURE PREVIEW SWITCHER</Text>
+        <Text style={styles.collapseToggleText}>{isCollapsed ? '[ + SHOW ]' : '[ – HIDE ]'}</Text>
+      </TouchableOpacity>
+
+      {!isCollapsed && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContainer}
+        >
+          {SCREEN_LIST.map((item) => {
+            const isActive = activeScreen === item.id;
+            return (
+              <TouchableOpacity
+                key={item.id}
+                activeOpacity={0.8}
+                onPress={() => onSelectScreen(item.id)}
                 style={[
-                  styles.pillText,
-                  isActive && styles.activePillText,
+                  styles.pill,
+                  isActive && styles.activePill,
                 ]}
               >
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+                <Text
+                  style={[
+                    styles.pillText,
+                    isActive && styles.activePillText,
+                  ]}
+                >
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
     </View>
   );
 };
@@ -69,14 +81,26 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.1)',
   },
+  headerLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginBottom: 4,
+  },
   headerLabel: {
     fontSize: 9,
     fontFamily: 'Poppins',
     fontWeight: '700',
     color: '#A8B5A2',
     letterSpacing: 1.2,
-    paddingHorizontal: 16,
-    marginBottom: 4,
+  },
+  collapseToggleText: {
+    fontSize: 9,
+    fontFamily: 'Poppins',
+    fontWeight: '700',
+    color: '#E8DCC8',
+    letterSpacing: 0.8,
   },
   scrollContainer: {
     paddingHorizontal: 12,

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 
-const defaultTasks = [
+export const defaultTasks = [
   {
     id: 'vt1',
     pickupName: 'Green Leaf Restaurant',

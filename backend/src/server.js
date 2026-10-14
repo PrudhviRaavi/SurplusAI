@@ -20,7 +20,10 @@ let io;
 const startServer = async () => {
   try {
     // Connect to MongoDB
-    await connectDB();
+    const dbConn = await connectDB();
+    if (!dbConn) {
+      console.warn('⚠️  [SERVER WARNING] Database connection was not established. Backend starting in DEGRADED mode.');
+    }
 
     // Create HTTP server wrapping Express app
     server = http.createServer(app);

@@ -199,9 +199,10 @@ export const DonorOnboardingScreen = ({ onComplete, onBackToRoleSelection }) => 
           <View style={styles.stepSection}>
             <Text style={styles.sectionHeading}>PICKUP LOCATION</Text>
             <LocationPickerMap
-              initialAddress={formData.donorAddress}
-              onLocationConfirm={(newAddr) => {
-                updateFormData({ donorAddress: newAddr, donorLocationConfirmed: true });
+              initialAddress={typeof formData.donorAddress === 'string' ? formData.donorAddress : (formData.donorAddress?.address || '124 Luxury Boulevard, Jubilee Hills, Hyderabad')}
+              onLocationConfirm={(loc) => {
+                const addrStr = typeof loc === 'string' ? loc : (loc?.address || '124 Luxury Boulevard, Jubilee Hills, Hyderabad');
+                updateFormData({ donorAddress: addrStr, donorLocationConfirmed: true });
               }}
             />
           </View>

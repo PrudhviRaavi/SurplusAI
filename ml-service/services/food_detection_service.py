@@ -7,13 +7,39 @@ from config.config import FOOD_DETECTION_MODEL_PATH, MODEL_VERSIONS
 
 logger = logging.getLogger("ml_service.food_detection")
 
+VALID_APP_CATEGORIES = {
+    "COOKED_MEALS",
+    "FRUITS_VEGETABLES",
+    "BAKERY",
+    "PACKAGED_FOOD",
+    "DAIRY",
+    "BEVERAGES",
+    "OTHER",
+}
+
 class FoodDetectionService:
     def __init__(self, model_path: str = FOOD_DETECTION_MODEL_PATH):
         self.model_path = model_path
         self.model = None
         self.is_loaded = False
         self.version = MODEL_VERSIONS["food_detection"]
+        self.class_mapping = self._load_class_mapping()
         self._load_model()
+
+    def _load_class_mapping(self) -> Dict[str, str]:
+        import json
+        mapping_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "datasets", "food_detection", "class_mapping.json"
+        )
+        if os.path.exists(mapping_path):
+            try:
+                with open(mapping_path, "r") as f:
+                    data = json.load(f)
+                    return {k: v for k, v in data.items() if v in VALID_APP_CATEGORIES}
+            except Exception as e:
+                logger.warning(f"Could not load class_mapping.json: {e}")
+        return {}
 
     def _load_model(self):
         """Loads YOLOv8 model if the weight file exists."""
@@ -59,9 +85,14 @@ class FoodDetectionService:
                     cls_name = result.names.get(cls_id, f"class_{cls_id}")
                     conf = float(box.conf[0].item())
                     xywh = box.xywh[0].tolist()
+                    is_known = cls_name in self.class_mapping
+                    app_category = self.class_mapping.get(cls_name) if is_known else None
 
                     detections.append({
                         "className": cls_name,
+                        "itemName": cls_name,
+                        "category": app_category,
+                        "isKnownClass": is_known,
                         "confidence": round(conf, 4),
                         "boundingBox": {
                             "x": round(xywh[0], 2),

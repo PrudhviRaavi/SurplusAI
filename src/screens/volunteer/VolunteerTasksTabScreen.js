@@ -13,6 +13,7 @@ import { ActiveDeliveryCard } from '../../components/volunteer/ActiveDeliveryCar
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { volunteerApiService } from '../../services/api/volunteerApiService';
+import { socketClient } from '../../services/api/socketClient';
 
 const filterPills = ['All Opportunities', 'Under 3 km', 'Under 5 km', 'Cooked meals', 'Bakery'];
 
@@ -24,9 +25,16 @@ export const VolunteerTasksTabScreen = ({ onAcceptTask, onViewRoute }) => {
     let isMounted = true;
     const fetchTasks = async () => {
       try {
-        const res = await volunteerApiService.getAvailableTasks();
-        if (res?.data?.tasks && isMounted) {
-          const mapped = res.data.tasks.map((t) => ({
+        const activeFilter = selectedFilter[0] || 'All Opportunities';
+        const params = {};
+        if (activeFilter === 'Under 3 km') params.radius = 3;
+        if (activeFilter === 'Under 5 km') params.radius = 5;
+
+        const res = await volunteerApiService.getAvailableTasks(params);
+        const taskArray = res?.tasks || res?.data?.tasks || (Array.isArray(res) ? res : []);
+
+        if (isMounted) {
+          const mapped = taskArray.map((t) => ({
             id: t.id || t._id,
             pickupName: t.donor?.organizationName || 'Donor Location',
             dropoffName: t.ngo?.organizationName || 'NGO Community Center',
@@ -43,8 +51,30 @@ export const VolunteerTasksTabScreen = ({ onAcceptTask, onViewRoute }) => {
         // Fallback to store
       }
     };
+
     fetchTasks();
-    return () => { isMounted = false; };
+
+    // 10-second automatic polling fallback
+    const intervalId = setInterval(fetchTasks, 10000);
+
+    // Real-time updates via Socket.IO
+    const unsubTask = typeof socketClient?.onTaskChange === 'function'
+      ? socketClient.onTaskChange(() => {
+          fetchTasks();
+        })
+      : null;
+    const unsubDonation = typeof socketClient?.onDonationChange === 'function'
+      ? socketClient.onDonationChange(() => {
+          fetchTasks();
+        })
+      : null;
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+      if (typeof unsubTask === 'function') unsubTask();
+      if (typeof unsubDonation === 'function') unsubDonation();
+    };
   }, [selectedFilter]);
 
   return (

@@ -31,9 +31,7 @@ export const NgoDonationDetailsScreen = ({ donation, onBack, onCompleteClaimFlow
   const [isClaimSuccess, setIsClaimSuccess] = useState(false);
   const [liveMatch, setLiveMatch] = useState(null);
 
-  const currentStoreItem = donationsList.find((i) => i.id === (donation?.id || 'DON-8842')) || donation;
-
-  const item = currentStoreItem || {
+  const defaultDonation = {
     id: 'DON-8842',
     donorName: 'Green Leaf Restaurant',
     donorType: 'Restaurant',
@@ -61,6 +59,13 @@ export const NgoDonationDetailsScreen = ({ donation, onBack, onCompleteClaimFlow
       'Available during operating hours',
       'Compatible with your pickup radius',
     ],
+  };
+
+  const currentStoreItem = (donationsList || []).find((i) => i.id === (donation?.id || 'DON-8842')) || donation;
+
+  const item = {
+    ...defaultDonation,
+    ...(currentStoreItem || {}),
   };
 
   useEffect(() => {
@@ -117,6 +122,11 @@ export const NgoDonationDetailsScreen = ({ donation, onBack, onCompleteClaimFlow
     );
   }
 
+  const statusStr = typeof item.status === 'string' && item.status ? item.status : 'PUBLISHED';
+  const pickupAddressStr = typeof item.pickupAddress === 'string'
+    ? item.pickupAddress
+    : (item.pickupAddress?.address || '124 Luxury Boulevard, Jubilee Hills, Hyderabad');
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
@@ -148,7 +158,7 @@ export const NgoDonationDetailsScreen = ({ donation, onBack, onCompleteClaimFlow
           <View style={styles.heroOverlay}>
             <View style={styles.statusPill}>
               <Ionicons name="sparkles" size={12} color={colors.gold} />
-              <Text style={styles.statusText}>STATUS: {item.status.replace(/_/g, ' ')}</Text>
+              <Text style={styles.statusText}>STATUS: {statusStr.replace(/_/g, ' ')}</Text>
             </View>
           </View>
         </View>
@@ -241,8 +251,8 @@ export const NgoDonationDetailsScreen = ({ donation, onBack, onCompleteClaimFlow
         {/* 5. Pickup Location & Map Preview */}
         <View style={styles.card}>
           <Text style={styles.cardHeaderTag}>PICKUP LOCATION</Text>
-          <Text style={styles.addressText}>{item.pickupAddress}</Text>
-          <LocationPickerMap initialAddress={item.pickupAddress} />
+          <Text style={styles.addressText}>{pickupAddressStr}</Text>
+          <LocationPickerMap initialAddress={pickupAddressStr} />
         </View>
       </ScrollView>
 
