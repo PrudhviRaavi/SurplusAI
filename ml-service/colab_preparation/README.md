@@ -1,6 +1,9 @@
 # FoodShareAI — Google Colab Free GPU Training Workflow
 
-This directory contains the complete, self-contained preparation bundle for fine-tuning the FoodShareAI YOLOv8n food-detection model on a free Google Colab NVIDIA GPU (T4).
+This directory contains the complete, self-contained preparation bundle for fine-tuning the FoodShareAI / SurplusAI YOLOv8n food-detection model on a free Google Colab NVIDIA GPU (T4).
+
+> [!NOTE]
+> **Git Repository Storage Notice**: To prevent repository bloat and comply with GitHub's file size limits, large binary assets (`food_detection_dataset.zip` ~796.7 MB and candidate checkpoint files `*.pt`) are deliberately excluded in `.gitignore`. All notebooks, configs, scripts, manifests, and documentation are committed and version-controlled.
 
 ---
 
@@ -9,10 +12,11 @@ This directory contains the complete, self-contained preparation bundle for fine
 | File | Size | SHA-256 Hash | Purpose |
 | :--- | :--- | :--- | :--- |
 | **`FoodShareAI_YOLOv8n_GPU_Training.ipynb`** | 34.2 KB | `62321C830938C66496D4687EB4BBB8F840EFB932B9EAD72B7332A24FD97F030B` | Verified Google Colab Notebook with preflight, Drive persistence, progressive sync, safety guards, and evaluation. |
-| **`food_detection_dataset.zip`** | 796.7 MB | `C3B01ACE73F7598B0C594FC7F4BEAD7DE5BAA6D667A632A5E3D57C9E4917E94C` | Portable dataset archive containing all 2,950 verified images and labels across train (2,061), val (589), and test (300) splits. |
-| **`best_epoch5_checkpoint.pt`** | 23.35 MB | `1DA8CD2C9CC6911108DA61456B5E5FC7D6BD84D1C79A24DC18E2321A602FAF6B` | Exact copy of the experimental Epoch 5 baseline checkpoint (original remains unmodified in `runs/`). |
+| **`food_detection_dataset.zip`** *(local asset)* | 796.7 MB | `C3B01ACE73F7598B0C594FC7F4BEAD7DE5BAA6D667A632A5E3D57C9E4917E94C` | Portable dataset archive containing all 2,950 verified images and labels across train (2,061), val (589), and test (300) splits. |
+| **`best_epoch5_checkpoint.pt`** *(local asset)* | 23.35 MB | `1DA8CD2C9CC6911108DA61456B5E5FC7D6BD84D1C79A24DC18E2321A602FAF6B` | Exact copy of the experimental Epoch 5 baseline checkpoint (original remains in `runs/`). |
 | **`food_detection_colab.yaml`** | 660 B | `2CE2F5C7D3392B16538BAD50B8F99B598B8B3531514C670D28CB6D85A68176F1` | Standalone Linux-compatible dataset configuration pointing to local runtime extraction with all 30 classes. |
 | **`google_drive_upload_manifest.json`** | ~2.1 KB | `(Upload Spec)` | Structured upload manifest specifying target Drive paths, verified hashes, and security exclusion rules. |
+| **`open_colab_workflow.bat`** | ~1.0 KB | `(Batch Launcher)` | Convenience launcher script for Windows developers. |
 | **`package_manifest.json`** | ~1.6 KB | `(Inventory)` | Comprehensive package inventory with file counts, sizes, and verified checksums. |
 
 ---

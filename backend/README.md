@@ -63,12 +63,24 @@ backend/
 │   ├── scripts/
 │   │   ├── createAdmin.js        # Dedicated administrative account creation
 │   │   ├── seed.js               # Development seed script (Demo accounts & donations)
+│   │   ├── testAdminOperationalIntelligence.js # Admin intelligence & reporting suite
 │   │   ├── testAiIntegration.js  # AI/ML service integration and inference pipeline test suite
 │   │   ├── testAuth.js           # Authentication & RBAC test suite
+│   │   ├── testCategoryMappingContract.js # Category mapping 30 classes to 6 categories
+│   │   ├── testDemandPrediction.js # LSTM time-series forecast contracts
 │   │   ├── testDonorDonations.js # Donor module & donation lifecycle test suite
+│   │   ├── testFraudSafety.js    # Fraud anomaly detection & duplicate food hashing
+│   │   ├── testImpactGamification.js # Points, badges, and leaderboard tests
 │   │   ├── testModels.js         # Model validation & schema test suite
 │   │   ├── testNgoMatching.js    # NGO module, matching engine & claim concurrency test suite
-│   │   └── testVolunteerDelivery.js # Volunteer module & delivery lifecycle test suite
+│   │   ├── testNotifications.js  # Push and in-app notifications suite
+│   │   ├── testPhase1RoleRouting.js # Role-based navigation and route guards
+│   │   ├── testPhase2SplashLayout.js # Splash and authentication layout contracts
+│   │   ├── testPhase3Networking.js # Backend client networking and timeout contracts
+│   │   ├── testRouteTracking.js  # A* routing & GeoJSON LineString route tests
+│   │   ├── testSystemIntegration.js # End-to-end multi-role system integration suite
+│   │   ├── testVolunteerDelivery.js # Volunteer module & delivery lifecycle test suite
+│   │   └── verifyLiveDonationFlow.js # End-to-end live donation to delivery verification
 │   ├── services/
 │   │   ├── aiAnalysisService.js  # Python ML microservice HTTP client & error handler
 │   │   ├── authService.js        # Authentication, JWT, and password hashing logic
@@ -163,6 +175,7 @@ backend/
 | `POST` | `/api/volunteer/tasks/:id/accept` | VOLUNTEER | Atomic task acceptance with double-assignment concurrency lock |
 | `GET` | `/api/volunteer/deliveries` | VOLUNTEER | View deliveries assigned to the authenticated volunteer |
 | `GET` | `/api/volunteer/deliveries/:id` | VOLUNTEER | View assigned delivery details (ownership protected) |
+| `GET` | `/api/volunteer/deliveries/:id/route` | VOLUNTEER | Retrieve optimized A* route waypoints, total distance (km), and ETA |
 | `PUT` | `/api/volunteer/deliveries/:id/status` | VOLUNTEER | Update delivery status through validated 7-stage state machine |
 | `POST` | `/api/volunteer/deliveries/:id/pickup` | VOLUNTEER | Confirm food pickup at donor location (status: `PICKED_UP`) |
 | `POST` | `/api/volunteer/deliveries/:id/proof` | VOLUNTEER | Record proof of delivery photo and recipient handover notes |
@@ -174,6 +187,13 @@ backend/
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/demand/forecast` | NGO, ADMIN | Retrieve or generate food category demand predictions |
 | `GET` | `/api/admin/intelligence/demand` | ADMIN | Aggregated operational intelligence, supply-demand gaps, category matrices |
+
+### 8. Real-Time WebSockets (Socket.IO)
+- **Room Authentication**: JWT handshake verification on socket connect.
+- **Active Delivery Rooms (`delivery:<id>`)**: Authorized donor, NGO, and volunteer join room for live telemetry.
+- **Location Updates (`delivery:location_update`)**: 3-second rate-throttled GPS coordinate stream with ETA re-calculation.
+- **Status Events (`delivery:status_changed`)**: Broadcasts state changes in real-time across participants.
+- **Notification Feed (`notification:new`)**: Targeted private notification channel per user ID.
 
 ---
 
@@ -242,6 +262,30 @@ npm run test:safety
 
 # 10. Test Notification CRUD, deduplication, Expo push client & domain event triggers
 npm run test:notifications
+
+# 11. Test Administrator Operations Center, NGO verification & audit logging
+npm run test:admin
+
+# 12. Test Impact metrics, gamification badges, and leaderboard privacy
+npm run test:impact
+
+# 13. Comprehensive end-to-end multi-role system integration suite
+npm run test:integration
+
+# 14. Verification of Live End-to-End Donation to Delivery Workflow
+node src/scripts/verifyLiveDonationFlow.js
+
+# 15. Category Mapping Contract (30 vision classes to 6 platform categories)
+node src/scripts/testCategoryMappingContract.js
+
+# 16. Role-Based Navigation & Route Protection Verification
+node src/scripts/testPhase1RoleRouting.js
+
+# 17. Splash & Layout Responsiveness Verification
+node src/scripts/testPhase2SplashLayout.js
+
+# 18. Backend Client Resilient Networking & Timeout Verification
+node src/scripts/testPhase3Networking.js
 ```
 
 ---
